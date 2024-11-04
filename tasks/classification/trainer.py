@@ -202,10 +202,10 @@ class Trainer:
       es = self.eval()
       self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
     
-    self.save_metrics()
+      self.save_metrics()
 
-    if es:
-      break
+      if es:
+        break
         
   def save_metrics(self):
       # Save metrics to a JSON file
