@@ -5,7 +5,9 @@
             "vocab_size": 4935,
             "dim_input": 64,
             "dim_hidden": 128,
-            "dim_output": 2
+            "dim_output": 2,
+            "embedding_strategy": "empty",
+            "embedding_frozen": false
         }
     },
     "tokenizer_config": {
@@ -18,9 +20,9 @@
         "task": "classification",
         "training_batch_size": 32,
         "validation_batch_size": 32,
-        "training_steps": 10000,
-        "metric_log_interval": 2000,
-        "eval_interval": 100,
+        "training_steps": 100000,
+        "metric_log_interval": 10000,
+        "eval_interval": 500,
         "learning_rate": 0.001
     }, 
     "metric_config": {
@@ -37,6 +39,9 @@
         "type": "classification"
     },
     "analysis_config": {
-
+        "output_dir": "output/rnn_empty",
+        "record_metrics": true,
+        "record_gradients": true,
+        "save_interval": 1000
     }
 }

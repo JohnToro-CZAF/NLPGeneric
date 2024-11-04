@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+from models.preembeddings import build_preembedding
+
 class RNNLayer(nn.Module):
   def __init__(self, dim_input, dim_hidden, dim_output, direction=1):
     super(RNNLayer, self).__init__()
@@ -32,9 +34,22 @@ class RNNLayer(nn.Module):
     return torch.zeros(batch_size, self.dim_hidden)
 
 class RNN(nn.Module):
-  def __init__(self, vocab_size, dim_input, dim_hidden, dim_output):
+  def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, embedding_strategy='random', embedding_frozen=True, **kwargs):
     super(RNN, self).__init__()
-    self.token_embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=dim_input)
+    # Initialize the embedding using the factory function
+    self.embedding_strategy = embedding_strategy
+    if embedding_strategy == "empty": # TODO: for baseline only
+      self.token_embedding = nn.Embedding(vocab_size, dim_input)
+    else:
+      self.token_embedding = build_preembedding(
+          strategy=embedding_strategy,
+          vocab_size=vocab_size,
+          embedding_dim=dim_input,
+          **kwargs
+      )
+    if embedding_frozen:
+      self.token_embedding.weight.requires_grad = False
+    # frozen embeddings option
     self.dim_input = dim_input
     self.dim_hidden = dim_hidden
     self.dim_output = dim_output
@@ -44,7 +59,8 @@ class RNN(nn.Module):
   
   def initialize(self):
     for p in self.parameters():
-      if p.dim() > 1:
+      # not initializing the embedding layer
+      if p is not self.token_embedding.weight:
         nn.init.xavier_uniform_(p)
   
   def forward(self, input):

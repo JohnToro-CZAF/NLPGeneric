@@ -1,11 +1,13 @@
+import os
 import tqdm
+import json
 import numpy as np
+import matplotlib.pyplot as plt
 
 import torch
 import torch.utils
 import torch.nn.functional as F
 import torch.nn as nn
-
 import metrics
 from metrics import beautify
 
@@ -73,6 +75,7 @@ class Trainer:
       val_loader: torch.utils.data.DataLoader,
       optimizer: torch.optim.Optimizer,
       metric_names: list[str],
+      analysis_config: dict
     ):
     self.args = training_args
     self.model = model
@@ -81,6 +84,17 @@ class Trainer:
     self.optimizer = optimizer
     self.loss_fn = get_loss_fn(self.args.task)
     self.metric_names = metric_names
+    self.analysis_config = analysis_config
+    self.metrics_log = {
+        'train_loss': [],
+        'train_metrics': {metric['name']: [] for metric in self.metric_names},
+        'val_loss': [],
+        'val_metrics': {metric['name']: [] for metric in self.metric_names},
+        'steps': [],
+        'val_steps': []  # Add this line
+    }
+    self.output_dir = self.analysis_config.get('output_dir', 'output/exp1')
+    os.makedirs(self.output_dir, exist_ok=True)
   
   def get_metrics_dict(self):
     return {metric["name"]: metrics.build(metric["name"], metric["args"]) for metric in self.metric_names}
@@ -103,14 +117,22 @@ class Trainer:
       for metric_name, metric in eval_metrics_dict.items():
         metric.update(output, label)
     
+    avg_val_loss = sum(val_loss) / len(val_loss)
     result_metrics = {
       metric_name: metric.value() for metric_name, metric in eval_metrics_dict.items()
     }
+    
+    # ! For printing
     print(
       f"""Validating result:
-        Validation Loss: {sum(val_loss) / len(val_loss)},
+        Validation Loss: {avg_val_loss},
         Metrics: {beautify(result_metrics)}"""
     )
+    
+    # ! For logging analysis
+    self.metrics_log['val_loss'].append(avg_val_loss)
+    for metric_name, value in result_metrics.items():
+        self.metrics_log['val_metrics'][metric_name].append(value)
   
   def train_step(self, input, length, label):
     self.optimizer.zero_grad()
@@ -119,6 +141,14 @@ class Trainer:
     loss = self.loss_fn(output, label)
     loss.backward()
     self.optimizer.step()
+    
+    # Record gradients if required
+    if self.analysis_config.get('record_gradients', False):
+        grad_norm = 0.0
+        for p in self.model.parameters():
+            if p.grad is not None:
+                grad_norm += p.grad.data.norm(2).item()
+        self.metrics_log.setdefault('grad_norms', []).append(grad_norm)
     return output, loss.item()
 
   def train(self):
@@ -137,9 +167,16 @@ class Trainer:
       output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
       train_loss += loss
       
-      if (step_id + 1) % self.args.metric_log_interval == 0:
-        for metric_name, metric in data_metrics_dict.items():
+      # ! For logging analysis
+      for metric_name, metric in data_metrics_dict.items():
           metric.update(output, label)
+          value = metric.value()
+          self.metrics_log['train_metrics'][metric_name].append(value)
+      self.metrics_log['steps'].append(step_id + 1)
+      self.metrics_log['train_loss'].append(loss/input.size()[0])
+      
+      # ! For printing
+      if (step_id + 1) % self.args.metric_log_interval == 0:
         result_metrics = {
           metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
         }
@@ -151,3 +188,68 @@ class Trainer:
       
       if (step_id + 1) % self.args.eval_interval == 0:
         self.eval()
+        self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
+    
+    self.save_metrics()
+        
+  def save_metrics(self):
+      # Save metrics to a JSON file
+      metrics_file = os.path.join(self.output_dir, 'metrics.json')
+      with open(metrics_file, 'w') as f:
+          json.dump(self.metrics_log, f, indent=4)
+
+      # Generate and save plots
+      steps = self.metrics_log['steps']
+      val_steps = self.metrics_log['val_steps']
+      # Plot training loss
+      plt.figure()
+      plt.plot(steps, self.metrics_log['train_loss'], label='Training Loss')
+      plt.xlabel('Steps')
+      plt.ylabel('Loss')
+      plt.title('Training Loss over Time')
+      plt.legend()
+      plt.savefig(os.path.join(self.output_dir, 'training_loss.png'))
+      plt.close()
+      
+      plt.figure()
+      plt.plot(val_steps, self.metrics_log['val_loss'], label='Validation Loss')
+      plt.xlabel('Steps')
+      plt.ylabel('Loss')
+      plt.title('Validation Loss over Time')
+      plt.legend()
+      plt.savefig(os.path.join(self.output_dir, 'validation_loss.png'))
+      plt.close()
+      
+      # Plot training and validation loss
+      plt.figure()
+      plt.plot(steps, self.metrics_log['train_loss'], label='Training Loss')
+      plt.plot(val_steps, self.metrics_log['val_loss'], label='Validation Loss')
+      plt.xlabel('Steps')
+      plt.ylabel('Loss')
+      plt.title('Training and Validation Loss over Time')
+      plt.legend()
+      plt.savefig(os.path.join(self.output_dir, 'loss.png'))
+      plt.close()
+      
+      # Plot metrics
+      for metric_name in self.metrics_log['train_metrics']:
+          plt.figure()
+          plt.plot(steps, self.metrics_log['train_metrics'][metric_name], label=f'Train {metric_name}')
+          plt.plot(val_steps, self.metrics_log['val_metrics'][metric_name], label=f'Validation {metric_name}')
+          plt.xlabel('Steps')
+          plt.ylabel(metric_name)
+          plt.title(f'{metric_name.capitalize()} over Time')
+          plt.legend()
+          plt.savefig(os.path.join(self.output_dir, f'{metric_name}.png'))
+          plt.close()
+
+      # Save gradient norms if recorded
+      if 'grad_norms' in self.metrics_log:
+          plt.figure()
+          plt.plot(steps, self.metrics_log['grad_norms'], label='Gradient Norm')
+          plt.xlabel('Steps')
+          plt.ylabel('Gradient Norm')
+          plt.title('Gradient Norm over Time')
+          plt.legend()
+          plt.savefig(os.path.join(self.output_dir, 'gradient_norm.png'))
+          plt.close()

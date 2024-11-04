@@ -1,7 +1,9 @@
 from .BPE import BPETokenizer
+from .word2vec import Word2VecTokenizer
 
 SUPPORTED_TOKENIZERS = {
-    "bpe": BPETokenizer
+    "bpe": BPETokenizer,
+    "word2vec": Word2VecTokenizer
 }
 
 def build_tokenizer(args):

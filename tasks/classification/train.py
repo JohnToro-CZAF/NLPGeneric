@@ -1,3 +1,4 @@
+import os
 import json
 import argparse
 import numpy as np
@@ -11,6 +12,27 @@ from utils.tokenizer import build_tokenizer
 from trainer import Trainer, TrainingArgs
 from dataloader import get_dataloaders
 
+def checking_config(config):
+  # check if the preembedding strategy is compatible with the tokenizer or not
+  if config["tokenizer_config"]["tokenizer_type"] == "bpe":
+    if config["model_config"]["args"]["embedding_strategy"] not in ["random", "empty"]:
+      raise ValueError("BPE tokenizer only supports random or empty,  embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
+  
+  if config["tokenizer_config"]["tokenizer_type"] == "glove":
+    if config["model_config"]["args"]["embedding_strategy"] not in ["glove"]:
+      raise ValueError("Glove tokenizer only supports glove embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
+  
+  if config["tokenizer_config"]["tokenizer_type"] == "word2vec":
+    if config["model_config"]["args"]["embedding_strategy"] not in ["word2vec"]:
+      raise ValueError("Word2vec tokenizer only supports fasttext embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
+  
+  if config["model_config"]["args"]["embedding_strategy"] == "word2vec":
+    if config["tokenizer_config"]["tokenizer_type"] != "word2vec":
+      raise ValueError("Word2Vec embedding strategy is not compatible with tokenizer, got: ", config["tokenizer_config"]["tokenizer_type"])
+  if config["model_config"]["args"]["embedding_strategy"] == "glove":
+    if config["tokenizer_config"]["tokenizer_type"] != "glove":
+      raise ValueError("Glove embedding strategy is not compatible with tokenizer, got: ", config["tokenizer_config"]["tokenizer_type"])
+
 def main():
   argparser = argparse.ArgumentParser()
   argparser.add_argument("--config", type=str, required=True)
@@ -18,6 +40,7 @@ def main():
   print("Config file: ", args.config)
   config = json.load(open(args.config))
   print(config)
+  checking_config(config)
   
   training_args = TrainingArgs(
     **config["trainer_args"]
@@ -31,13 +54,22 @@ def main():
     training_args=training_args
   )
   
+  exp_dir = config["analysis_config"].get('output_dir', 'output/exp1')
+  if os.path.exists(exp_dir):
+    raise ValueError("Experiment directory already exists, please delete it or use a new directory")
+  os.makedirs(exp_dir, exist_ok=True)
+  # save entire config file for reproducibility
+  with open(os.path.join(exp_dir, "config.json"), "w") as f:
+    json.dump(config, f, indent=4)
+  
   trainer = Trainer(
-    model=model, 
+    model=model,
     training_args=training_args, 
     train_loader=train_loader,
     val_loader=val_loader,
     optimizer=optimizer,
-    metric_names=config["metric_config"]["metrics"]
+    metric_names=config["metric_config"]["metrics"],
+    analysis_config=config["analysis_config"]
   )
   trainer.train()
 

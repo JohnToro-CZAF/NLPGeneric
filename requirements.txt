@@ -1,0 +1,6 @@
+transformers
+datasets
+torch
+numpy
+fasttext
+sentencepiece
