@@ -48,7 +48,10 @@ class RNN(nn.Module):
           **kwargs
       )
     if embedding_frozen:
-      self.token_embedding.weight.requires_grad = False
+      try:
+        self.token_embedding.weight.requires_grad = False
+      except:
+        self.token_embedding.embedding.weight.requires_grad = False
     # frozen embeddings option
     self.dim_input = dim_input
     self.dim_hidden = dim_hidden
@@ -65,6 +68,7 @@ class RNN(nn.Module):
   
   def forward(self, input):
     hidden = self.rnn_layer.init_hidden(input.size()[0])
+    hidden = hidden.to(input.device)
     embedded = self.token_embedding(input)
     outputs = self.rnn_layer(embedded, hidden)
     outputs = self.softmax(outputs)
@@ -72,3 +76,88 @@ class RNN(nn.Module):
 
   def init_hidden(self, batch_size):
     return Variable(torch.zeros((batch_size, self.dim_hidden)))
+
+class RNNSubLayer(nn.Module):
+    def __init__(self, input_size, hidden_size, direction=1):
+        super(RNNSubLayer, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.direction = direction
+
+        self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
+
+    def forward(self, input_seq, hidden):
+        seq_len = input_seq.size(1)
+        batch_size = input_seq.size(0)
+        outputs = []
+
+        indices = range(seq_len) if self.direction == 1 else range(seq_len -1, -1, -1)
+        for i in indices:
+            combined = torch.cat((input_seq[:, i, :], hidden), dim=1)
+            hidden = self.i2h(combined)
+            outputs.append(hidden.unsqueeze(1))  # Collect hidden states
+
+        outputs = torch.cat(outputs, dim=1)  # Shape: [batch_size, seq_len, hidden_size]
+        return outputs  # Return all hidden states and the last hidden state
+
+    def init_hidden(self, batch_size, device):
+        return torch.zeros(batch_size, self.hidden_size).to(device)
+
+class MultilayerRNN(nn.Module):
+    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+        super(MultilayerRNN, self).__init__()
+        self.embedding_strategy = embedding_strategy
+
+        # Initialize the embedding using the factory function
+        if embedding_strategy == "empty":  # For baseline only
+            self.token_embedding = nn.Embedding(vocab_size, dim_input)
+        else:
+            self.token_embedding = build_preembedding(
+                strategy=embedding_strategy,
+                vocab_size=vocab_size,
+                embedding_dim=dim_input,
+                **kwargs
+            )
+        if embedding_frozen:
+            self.token_embedding.weight.requires_grad = False
+
+        self.dim_input = dim_input
+        self.dim_hidden = dim_hidden
+        self.dim_output = dim_output
+        self.num_layers = num_layers
+
+        # Stack RNN layers
+        self.rnn_layers = nn.ModuleList()
+        for layer in range(num_layers):
+            input_size = dim_input if layer == 0 else dim_hidden
+            self.rnn_layers.append(RNNSubLayer(input_size, dim_hidden))
+
+        # Output layer
+        self.fc = nn.Linear(dim_hidden, dim_output)
+        self.softmax = nn.LogSoftmax(dim=-1)
+
+    def initialize(self):
+        for p in self.parameters():
+            if p.dim() > 1 and p.requires_grad and p is not self.token_embedding.weight:
+                nn.init.xavier_uniform_(p)
+
+    def forward(self, input):
+        batch_size = input.size(0)
+        device = input.device
+
+        # Embedding layer
+        embedded = self.token_embedding(input)  # Shape: [batch_size, seq_len, embedding_dim]
+
+        # Initialize hidden states for all layers
+        hidden_states = [layer.init_hidden(batch_size, device) for layer in self.rnn_layers]
+
+        # Pass through stacked RNN layers
+        input_seq = embedded
+        for idx, layer in enumerate(self.rnn_layers):
+            outputs = layer(input_seq, hidden_states[idx])
+            input_seq = outputs  # Input to the next layer
+
+        # Output layer
+        logits = self.fc(outputs)
+        preds = self.softmax(logits)
+        return preds

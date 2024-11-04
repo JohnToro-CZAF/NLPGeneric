@@ -1,13 +1,16 @@
+from .lstm import MultilayerLSTM, MultilayerBiLSTM
+from .rnn import RNN, MultilayerRNN
+from .gru import MultilayerGRU, MultilayerBiGRU
 from .bi_deep_rnn import BiDeepRNN
-from .lstm import LSTM
-from .rnn import RNN
-from .uni_deep_rnn import UniDeepRNN
 from .build_model import build_model
 
 __all__ = [
-    'BiDeepRNN',
-    'LSTM',
     'RNN',
-    'UniDeepRNN',
+    'MultilayerRNN',
+    'BiDeepRNN',
+    'MultilayerLSTM',
+    'MultilayerBiLSTM',
+    'MultilayerGRU',
+    'MultilayerBiGRU',
     'build_model'
 ]

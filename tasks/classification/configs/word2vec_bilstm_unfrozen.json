@@ -1,0 +1,50 @@
+{
+    "model_config": {
+        "model_type": "BiLSTM",
+        "args" : {
+            "vocab_size": 1193516,
+            "dim_input": 25,
+            "dim_hidden": 128,
+            "dim_output": 2,
+            "num_layers": 3,
+            "embedding_strategy": "word2vec",
+            "pretrained_path": "glove-twitter-25",
+            "embedding_frozen": false,
+            "oov_handing": "using_unk"
+        }
+    },
+    "tokenizer_config": {
+        "tokenizer_type": "word2vec",
+        "args": {
+            "pretrained_path": "glove-twitter-25"
+        }
+    },
+    "trainer_args": {
+        "task": "classification",
+        "training_batch_size": 32,
+        "validation_batch_size": 32,
+        "training_steps": 20000,
+        "metric_log_interval": 1000,
+        "eval_interval": 500,
+        "learning_rate": 0.001
+    }, 
+    "metric_config": {
+        "metrics": [
+            {"name": "accuracy", "args": {}},
+            {"name": "f1", "args": {}},
+            {"name": "precision", "args": {}},
+            {"name": "recall", "args": {}}
+        ]
+    },
+    "data_config": {
+        "name": "rotten_tomatoes",
+        "is_huggingface": true,
+        "type": "classification"
+    },
+    "analysis_config": {
+        "output_dir": "output/bilstm_layer=3_unfrozen_glove_twitter_25",
+        "record_metrics": true,
+        "record_gradients": true,
+        "save_interval": 1000
+    }
+}

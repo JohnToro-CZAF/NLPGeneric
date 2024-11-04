@@ -1,0 +1,48 @@
+{
+    "model_config": {
+        "model_type": "MultilayerRNN",
+        "args" : {
+            "vocab_size": 4935,
+            "dim_input": 64,
+            "dim_hidden": 128,
+            "dim_output": 2,
+            "num_layers": 3,
+            "embedding_strategy": "empty",
+            "embedding_frozen": false
+        }
+    },
+    "tokenizer_config": {
+        "tokenizer_type": "bpe",
+        "args": {
+            "pretrained_path": "/home/johntoro/code/NLP_Collections/tasks/classification/utils/tokenizer/cache/shakespeare"
+        }
+    },
+    "trainer_args": {
+        "task": "classification",
+        "training_batch_size": 32,
+        "validation_batch_size": 32,
+        "training_steps": 20000,
+        "metric_log_interval": 1000,
+        "eval_interval": 1000,
+        "learning_rate": 0.001
+    }, 
+    "metric_config": {
+        "metrics": [
+            {"name": "accuracy", "args": {}},
+            {"name": "f1", "args": {}},
+            {"name": "precision", "args": {}},
+            {"name": "recall", "args": {}}
+        ]
+    },
+    "data_config": {
+        "name": "rotten_tomatoes",
+        "is_huggingface": true,
+        "type": "classification"
+    },
+    "analysis_config": {
+        "output_dir": "output/multyrnn_layer=3_empty",
+        "record_metrics": true,
+        "record_gradients": true,
+        "save_interval": 1000
+    }
+}

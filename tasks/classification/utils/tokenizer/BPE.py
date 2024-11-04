@@ -28,6 +28,7 @@ class BPETokenizer(BaseTokenizer):
     self.BPE = Counter()
     if "<pad>" in self.vocab:
       self.pad_id = self.vocab_ids["<pad>"]
+    self.unk_id = self.vocab_ids["<UNK>"]
   
   @classmethod
   def from_pretrained(cls, folder_path: str):

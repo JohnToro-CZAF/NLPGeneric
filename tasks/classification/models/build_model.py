@@ -1,17 +1,23 @@
 from typing import Dict
 from torch import nn
 from models import (
-    BiDeepRNN, 
-    LSTM, 
     RNN, 
-    UniDeepRNN
+    BiDeepRNN, 
+    MultilayerRNN,
+    MultilayerLSTM,
+    MultilayerBiLSTM,
+    MultilayerGRU,
+    MultilayerBiGRU
 )
 
 MODULE_MAP = {
     "RNN": RNN,
-    "LSTM": LSTM,
-    "UniDeepRNN": UniDeepRNN,
-    "BiDeepRNN": BiDeepRNN
+    "BiDeepRNN": BiDeepRNN,
+    "MultilayerRNN": MultilayerRNN,
+    "LSTM": MultilayerLSTM,
+    "BiLSTM": MultilayerBiLSTM,
+    "GRU": MultilayerGRU,
+    "BiGRU": MultilayerBiGRU
 }
 
 def build_model(config: Dict)-> nn.Module:

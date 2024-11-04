@@ -1,9 +1,9 @@
 from .BPE import BPETokenizer
-from .word2vec import Word2VecTokenizer
+from .word2vec import NLTKTokenizer
 
 SUPPORTED_TOKENIZERS = {
     "bpe": BPETokenizer,
-    "word2vec": Word2VecTokenizer
+    "word2vec": NLTKTokenizer
 }
 
 def build_tokenizer(args):

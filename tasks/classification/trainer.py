@@ -100,8 +100,10 @@ class Trainer:
     return {metric["name"]: metrics.build(metric["name"], metric["args"]) for metric in self.metric_names}
 
   def eval_step(self, input, length, label):
+    input = input.to("cuda")
     with torch.no_grad():
       output = self.model(input)
+    output = output.to("cpu")
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
     output = output[range(input.size()[0]), length - 1]
@@ -136,7 +138,9 @@ class Trainer:
   
   def train_step(self, input, length, label):
     self.optimizer.zero_grad()
+    input = input.to("cuda")
     output = self.model(input) # output : (batch_size, seq_len, num_classes)
+    output = output.to("cpu")
     output = output[range(input.size()[0]), length - 1]
     loss = self.loss_fn(output, label)
     loss.backward()

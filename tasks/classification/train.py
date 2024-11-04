@@ -18,20 +18,20 @@ def checking_config(config):
     if config["model_config"]["args"]["embedding_strategy"] not in ["random", "empty"]:
       raise ValueError("BPE tokenizer only supports random or empty,  embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
   
-  if config["tokenizer_config"]["tokenizer_type"] == "glove":
-    if config["model_config"]["args"]["embedding_strategy"] not in ["glove"]:
-      raise ValueError("Glove tokenizer only supports glove embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
-  
   if config["tokenizer_config"]["tokenizer_type"] == "word2vec":
     if config["model_config"]["args"]["embedding_strategy"] not in ["word2vec"]:
-      raise ValueError("Word2vec tokenizer only supports fasttext embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
+      raise ValueError("Word2vec tokenizer only supports word2vec embedding strategy, got: ", config["model_config"]["args"]["embedding_strategy"])
   
   if config["model_config"]["args"]["embedding_strategy"] == "word2vec":
+    if config["model_config"]["args"]["pretrained_path"] is None:
+      raise ValueError("Please specify the path to the pretrained word2vec model")
     if config["tokenizer_config"]["tokenizer_type"] != "word2vec":
       raise ValueError("Word2Vec embedding strategy is not compatible with tokenizer, got: ", config["tokenizer_config"]["tokenizer_type"])
-  if config["model_config"]["args"]["embedding_strategy"] == "glove":
-    if config["tokenizer_config"]["tokenizer_type"] != "glove":
-      raise ValueError("Glove embedding strategy is not compatible with tokenizer, got: ", config["tokenizer_config"]["tokenizer_type"])
+    
+  if config["model_config"]["args"]["embedding_strategy"] in ["word2vec"]:
+    # have to specify the input_dim
+    if "dim_input" not in config["model_config"]["args"]:
+      raise ValueError("Please specify dim_input for word2vec or glove embedding strategy")
 
 def main():
   argparser = argparse.ArgumentParser()
@@ -46,6 +46,7 @@ def main():
     **config["trainer_args"]
   )
   model = build_model(config["model_config"])
+  model.to("cuda")
   tokenizer = build_tokenizer(config["tokenizer_config"])
   optimizer = torch.optim.Adam(model.parameters(), lr=training_args.learning_rate)
   train_loader, val_loader, test_loader = get_dataloaders(
