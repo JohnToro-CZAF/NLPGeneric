@@ -45,7 +45,6 @@ class TrainingArgs:
       eval_interval: int,
       training_batch_size: int,
       validation_batch_size: int,
-      early_stopper,
     ):
     """ Training Arguments for the Trainer class
 
@@ -66,7 +65,6 @@ class TrainingArgs:
     self.metric_log_interval = metric_log_interval
     self.training_batch_size = training_batch_size
     self.validation_batch_size = validation_batch_size
-    self.early_stopper = early_stopper
 
 class Trainer:
   def __init__(
@@ -77,7 +75,8 @@ class Trainer:
       val_loader: torch.utils.data.DataLoader,
       optimizer: torch.optim.Optimizer,
       metric_names: list[str],
-      analysis_config: dict
+      analysis_config: dict,
+      early_stopper
     ):
     self.args = training_args
     self.model = model
@@ -96,6 +95,8 @@ class Trainer:
         'val_steps': []  # Add this line
     }
     self.output_dir = self.analysis_config.get('output_dir', 'output/exp1')
+    self.early_stopper = early_stopper
+
     os.makedirs(self.output_dir, exist_ok=True)
   
   def get_metrics_dict(self):
@@ -168,11 +169,10 @@ class Trainer:
     train_loss = 0
     data_metrics_dict = self.get_metrics_dict()
     print("Data Metrics: ", data_metrics_dict)
-    data_iter = iter(self.train_loader)
     for step_id in tqdm.tqdm(range(self.args.training_steps)):
       epoch_loss = []
       epoch_metrics_dict = self.get_metrics_dict()
-      for i, (input, length, label) in tqdm(enumerate(train_loader)):
+      for i, (input, length, label) in tqdm(enumerate(self.train_loader)):
         output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
         epoch_loss.append(loss / input.size()[0])
         for metric_name, metric in epoch_metrics_dict.items():
