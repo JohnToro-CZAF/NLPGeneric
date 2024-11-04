@@ -187,12 +187,12 @@ class Trainer:
       for metric_name, metric in epoch_metrics_dict.items():
           value = metric.value()
           self.metrics_log['train_metrics'][metric_name].append(value)
-      self.metrics_log['epoch'].append(step_id + 1)
+      self.metrics_log['steps'].append(step_id + 1)
       self.metrics_log['train_loss'].append(avg_epoch_loss)
       
       # ! For printing
       result_metrics = {
-        metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
+        metric_name: metric.value() for metric_name, metric in epoch_metrics_dict.items()
       }
       print(
         f"""Epoch {step_id + 1}:
@@ -202,10 +202,11 @@ class Trainer:
       es = self.eval()
       self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
     
-      self.save_metrics()
+      
 
       if es:
         break
+    self.save_metrics()
         
   def save_metrics(self):
       # Save metrics to a JSON file
