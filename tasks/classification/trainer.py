@@ -172,7 +172,7 @@ class Trainer:
     for step_id in tqdm.tqdm(range(self.args.training_steps)):
       epoch_loss = []
       epoch_metrics_dict = self.get_metrics_dict()
-      for i, (input, length, label) in tqdm(enumerate(self.train_loader)):
+      for i, (input, length, label) in tqdm.tqdm(enumerate(self.train_loader)):
         output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
         epoch_loss.append(loss / input.size()[0])
         for metric_name, metric in epoch_metrics_dict.items():
