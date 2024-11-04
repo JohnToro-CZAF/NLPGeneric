@@ -170,37 +170,37 @@ class Trainer:
     print("Data Metrics: ", data_metrics_dict)
     data_iter = iter(self.train_loader)
     for step_id in tqdm.tqdm(range(self.args.training_steps)):
-      try:
-        input, length, label = next(data_iter)
-      except StopIteration:
-        data_iter = iter(self.train_loader)
-        input, length, label = next(data_iter)
+      epoch_loss = []
+      epoch_metrics_dict = self.get_metrics_dict()
+      for i, (input, length, label) in tqdm(enumerate(train_loader)):
+        output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
+        epoch_loss.append(loss / input.size()[0])
+        for metric_name, metric in epoch_metrics_dict.items():
+          metric.update(output, label) 
       
-      output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
-      train_loss += loss
-      
+      avg_epoch_loss = sum(epoch_loss) / len(epoch_loss)
+      train_loss += avg_epoch_loss
+      result_metrics = {
+        metric_name: metric.value() for metric_name, metric in epoch_metrics_dict.items()
+      }
       # ! For logging analysis
-      for metric_name, metric in data_metrics_dict.items():
-          metric.update(output, label)
+      for metric_name, metric in epoch_metrics_dict.items():
           value = metric.value()
           self.metrics_log['train_metrics'][metric_name].append(value)
-      self.metrics_log['steps'].append(step_id + 1)
-      self.metrics_log['train_loss'].append(loss/input.size()[0])
+      self.metrics_log['epoch'].append(step_id + 1)
+      self.metrics_log['train_loss'].append(avg_epoch_loss)
       
       # ! For printing
-      if (step_id + 1) % self.args.metric_log_interval == 0:
-        result_metrics = {
-          metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
-        }
-        print(
-          f"""Step {step_id + 1}:
-            Train Loss: {train_loss / ((step_id + 1) * self.args.training_batch_size) },
+      result_metrics = {
+        metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
+      }
+      print(
+        f"""Epoch {step_id + 1}:
+            Train Loss: {train_loss / (step_id + 1)},
             Metrics:{beautify(result_metrics)}"""
-        )
-      
-      if (step_id + 1) % self.args.eval_interval == 0:
-        es = self.eval()
-        self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
+      )
+      es = self.eval()
+      self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
     
     self.save_metrics()
 
