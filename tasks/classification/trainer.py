@@ -45,6 +45,7 @@ class TrainingArgs:
       eval_interval: int,
       training_batch_size: int,
       validation_batch_size: int,
+      early_stopper,
     ):
     """ Training Arguments for the Trainer class
 
@@ -65,6 +66,7 @@ class TrainingArgs:
     self.metric_log_interval = metric_log_interval
     self.training_batch_size = training_batch_size
     self.validation_batch_size = validation_batch_size
+    self.early_stopper = early_stopper
 
 class Trainer:
   def __init__(
@@ -135,6 +137,12 @@ class Trainer:
     self.metrics_log['val_loss'].append(avg_val_loss)
     for metric_name, value in result_metrics.items():
         self.metrics_log['val_metrics'][metric_name].append(value)
+      
+    if self.early_stopper.early_stop(result_metrics['accuracy']):
+      print('Early Stopping activated')
+      return True
+
+    return False
   
   def train_step(self, input, length, label):
     self.optimizer.zero_grad()
@@ -191,10 +199,13 @@ class Trainer:
         )
       
       if (step_id + 1) % self.args.eval_interval == 0:
-        self.eval()
+        es = self.eval()
         self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
     
     self.save_metrics()
+
+    if es:
+      break
         
   def save_metrics(self):
       # Save metrics to a JSON file
