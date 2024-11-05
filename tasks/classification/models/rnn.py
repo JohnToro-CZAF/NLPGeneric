@@ -119,7 +119,10 @@ class MultilayerRNN(nn.Module):
                 **kwargs
             )
         if embedding_frozen:
-            self.token_embedding.weight.requires_grad = False
+            try:
+              self.token_embedding.weight.requires_grad = False
+            except:
+              self.token_embedding.embedding.weight.requires_grad = False
 
         self.dim_input = dim_input
         self.dim_hidden = dim_hidden

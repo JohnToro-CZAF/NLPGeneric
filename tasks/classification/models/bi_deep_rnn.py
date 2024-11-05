@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.autograd import Variable
+from .preembeddings import build_preembedding
+
 
 class RNNLayer(nn.Module):
   def __init__(self, dim_input, dim_hidden, direction=1):
@@ -29,12 +31,29 @@ class RNNLayer(nn.Module):
         outputs.append(output_cell)
     return torch.stack(outputs, dim=1) # (batch_size, seq_len, dim_hidden)
 
-  def init_hidden(self, batch_size):
-    return torch.zeros(batch_size, self.dim_hidden)
+  def init_hidden(self, batch_size, device):
+    return torch.zeros(batch_size, self.dim_hidden).to(device)
 
 class DeepRNN(nn.Module):
-  def __init__(self, dim_input, dim_hidden, num_layers, direction=1):
+  def __init__(self, vocab_size, dim_input, dim_hidden, num_layers, direction=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
     super(DeepRNN, self).__init__()
+    
+    self.embedding_strategy = embedding_strategy
+    if embedding_strategy == "empty": # TODO: for baseline only
+      self.token_embedding = nn.Embedding(vocab_size, dim_input)
+    else:
+      self.token_embedding = build_preembedding(
+          strategy=embedding_strategy,
+          vocab_size=vocab_size,
+          embedding_dim=dim_input,
+          **kwargs
+      )
+    if embedding_frozen:
+      try:
+        self.token_embedding.weight.requires_grad = False
+      except:
+        self.token_embedding.embedding.weight.requires_grad = False
+   
     self.dim_input = dim_input
     self.dim_hidden = dim_hidden
     self.num_layers = num_layers
@@ -44,10 +63,14 @@ class DeepRNN(nn.Module):
     self.rnn_layers = nn.ModuleList([RNNLayer(dim_hidden, dim_hidden, direction=direction) for _ in range(num_layers)])
   
   def forward(self, input):
-    hidden = self.input_layer.init_hidden(input.size()[0])
-    outputs = self.input_layer(input, hidden)
+
+    device = input.device
+    hidden = self.input_layer.init_hidden(input.size()[0], device=device)
+    embedded = self.token_embedding(input)
+
+    outputs = self.input_layer(embedded, hidden)
     for i in range(self.num_layers):
-      hidden = self.rnn_layers[i].init_hidden(input.size()[0])
+      hidden = self.rnn_layers[i].init_hidden(input.size()[0], device=device)
       outputs = self.rnn_layers[i](outputs, hidden)
     return outputs
 
@@ -55,15 +78,16 @@ class DeepRNN(nn.Module):
     return torch.zeros(batch_size, self.dim_hidden)
 
 class BiDeepRNN(nn.Module):
-  def __init__(self, dim_input, dim_hidden, dim_output, num_layers):
-    super(BiRNN, self).__init__()
+  def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    super(BiDeepRNN, self).__init__()
+
     self.dim_input = dim_input
     self.dim_hidden = dim_hidden
     self.dim_output = dim_output
     self.num_layers = num_layers
 
-    self.rnn_layers_forward = DeepRNN(dim_input, dim_hidden, num_layers, direction=1)
-    self.rnn_layers_backward = DeepRNN(dim_input, dim_hidden, num_layers, direction=-1)
+    self.rnn_layers_forward = DeepRNN(vocab_size, dim_input, dim_hidden, num_layers, direction=1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
+    self.rnn_layers_backward = DeepRNN(vocab_size, dim_input, dim_hidden, num_layers, direction=-1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
     self.output_layer = nn.Linear(2*dim_hidden, dim_output)
     self.softmax = nn.LogSoftmax(dim=-1)
 
