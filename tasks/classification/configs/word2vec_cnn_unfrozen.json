@@ -1,12 +1,13 @@
 {
     "model_config": {
-        "model_type": "GRU",
+        "model_type": "CNN",
         "args" : {
             "vocab_size": 1193516,
             "dim_input": 25,
-            "dim_hidden": 128,
+            "filter_sizes": [3, 4, 5],
+            "num_filters": 100,
             "dim_output": 2,
-            "num_layers": 4,
+            "dropout": 0.5,
             "embedding_strategy": "word2vec",
             "pretrained_path": "glove-twitter-25",
             "embedding_frozen": false,
@@ -23,7 +24,7 @@
         "task": "classification",
         "training_batch_size": 32,
         "validation_batch_size": 32,
-        "training_steps": 20000,
+        "training_steps": 15000,
         "metric_log_interval": 1000,
         "eval_interval": 500,
         "learning_rate": 0.001
@@ -42,7 +43,7 @@
         "type": "classification"
     },
     "analysis_config": {
-        "output_dir": "output/gru_layer=4_unfrozen_glove_twitter_25",
+        "output_dir": "output/cnn_numfilters=100_unfrozen_glove_twitter_25",
         "record_metrics": true,
         "record_gradients": true,
         "save_interval": 1000
