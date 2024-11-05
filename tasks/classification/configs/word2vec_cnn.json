@@ -24,7 +24,7 @@
         "task": "classification",
         "training_batch_size": 32,
         "validation_batch_size": 32,
-        "training_steps": 15000,
+        "epoch": 20,
         "metric_log_interval": 1000,
         "eval_interval": 500,
         "learning_rate": 0.001

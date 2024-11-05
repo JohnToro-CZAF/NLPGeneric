@@ -114,6 +114,7 @@ class Trainer:
       metric_names: list[str],
       analysis_config: dict,
       early_stopper: EarlyStopper,
+      model_type: str,
     ):
     self.args = training_args
     self.model = model
@@ -124,6 +125,7 @@ class Trainer:
     self.metric_names = metric_names
     self.analysis_config = analysis_config
     self.early_stopper = early_stopper
+    self.model_type = model_type
     self.metrics_log = {
         'train_loss': [],
         'train_metrics': {metric['name']: [] for metric in self.metric_names},
@@ -147,7 +149,8 @@ class Trainer:
     output = output.to("cpu")
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
-    output = output[range(input.size()[0]), length - 1]
+    if model_type!='CNN':
+      output = output[range(input.size()[0]), length - 1]
     loss = self.loss_fn(output, label)
     return output, loss.item()
 
@@ -188,7 +191,8 @@ class Trainer:
     input = input.to("cuda")
     output = self.model(input) # output : (batch_size, seq_len, num_classes)
     output = output.to("cpu")
-    output = output[range(input.size()[0]), length - 1]
+    if model_type!='CNN':
+      output = output[range(input.size()[0]), length - 1]
     loss = self.loss_fn(output, label)
     loss.backward()
     self.optimizer.step()

@@ -45,6 +45,7 @@ def main():
   training_args = TrainingArgs(
     **config["trainer_args"]
   )
+  model_type = config['model_config']['model_type']
   model = build_model(config["model_config"])
   model.to("cuda")
   tokenizer = build_tokenizer(config["tokenizer_config"])
@@ -76,6 +77,7 @@ def main():
     metric_names=config["metric_config"]["metrics"],
     analysis_config=config["analysis_config"],
     early_stopper=early_stopper,
+    model_type=model_type
   )
   if training_args.epoch is not None:
     trainer.train_epoch()
