@@ -1,14 +1,14 @@
 {
     "model_config": {
-        "model_type": "MultilayerRNN",
+        "model_type": "BiDeepRNN",
         "args" : {
             "vocab_size": 1193516,
-            "dim_input": 25,
+            "dim_input": 100,
             "dim_hidden": 128,
             "dim_output": 2,
             "num_layers": 3,
             "embedding_strategy": "word2vec",
-            "pretrained_path": "glove-twitter-25",
+            "pretrained_path": "glove-twitter-100",
             "embedding_frozen": true,
             "oov_handling": "using_unk"
 
@@ -17,14 +17,14 @@
     "tokenizer_config": {
         "tokenizer_type": "word2vec",
         "args": {
-            "pretrained_path": "glove-twitter-25"
+            "pretrained_path": "glove-twitter-100"
         }
     },
     "trainer_args": {
         "task": "classification",
-        "training_batch_size": 32,
-        "validation_batch_size": 32,
-        "epoch": 5,
+        "training_batch_size": 128,
+        "validation_batch_size": 128,
+        "epoch": 100,
         "metric_log_interval": 1000,
         "eval_interval": 1000,
         "learning_rate": 0.001
@@ -43,7 +43,7 @@
         "type": "classification"
     },
     "analysis_config": {
-        "output_dir": "output/multyrnn_layer=3_word2vec",
+        "output_dir": "output/bideeprnn_layer=3_word2vec_100",
         "record_metrics": true,
         "record_gradients": true,
         "save_interval": 1000
