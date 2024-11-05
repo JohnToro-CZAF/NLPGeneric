@@ -249,6 +249,8 @@ class Trainer:
         self.save_metrics()
         if es:
           break
+    # save model after training
+    torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
   
   def train_epoch(self): # epoch training instead
     self.model.train()
@@ -286,7 +288,8 @@ class Trainer:
       self.save_metrics()
       if es:
         break
-      
+    torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
+
   def save_metrics(self):
       # Save metrics to a JSON file
       metrics_file = os.path.join(self.output_dir, 'metrics.json')
