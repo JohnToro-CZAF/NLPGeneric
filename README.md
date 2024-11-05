@@ -4,4 +4,8 @@
 python train.py --config ./configs/base.json
 ```
 
+```python
+python test_inference.py --config ./configs/base.json
+```
+
 ### If you want to change the config file, create a new one in the configs folder.
