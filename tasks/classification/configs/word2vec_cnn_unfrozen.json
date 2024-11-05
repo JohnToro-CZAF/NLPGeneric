@@ -1,0 +1,51 @@
+{
+    "model_config": {
+        "model_type": "CNN",
+        "args" : {
+            "vocab_size": 1193516,
+            "dim_input": 25,
+            "filter_sizes": [3, 4, 5],
+            "num_filters": 100,
+            "dim_output": 2,
+            "dropout": 0.5,
+            "embedding_strategy": "word2vec",
+            "pretrained_path": "glove-twitter-25",
+            "embedding_frozen": false,
+            "oov_handing": "using_unk"
+        }
+    },
+    "tokenizer_config": {
+        "tokenizer_type": "word2vec",
+        "args": {
+            "pretrained_path": "glove-twitter-25"
+        }
+    },
+    "trainer_args": {
+        "task": "classification",
+        "training_batch_size": 32,
+        "validation_batch_size": 32,
+        "training_steps": 15000,
+        "metric_log_interval": 1000,
+        "eval_interval": 500,
+        "learning_rate": 0.001
+    }, 
+    "metric_config": {
+        "metrics": [
+            {"name": "accuracy", "args": {}},
+            {"name": "f1", "args": {}},
+            {"name": "precision", "args": {}},
+            {"name": "recall", "args": {}}
+        ]
+    },
+    "data_config": {
+        "name": "rotten_tomatoes",
+        "is_huggingface": true,
+        "type": "classification"
+    },
+    "analysis_config": {
+        "output_dir": "output/cnn_numfilters=100_unfrozen_glove_twitter_25",
+        "record_metrics": true,
+        "record_gradients": true,
+        "save_interval": 1000
+    }
+}
