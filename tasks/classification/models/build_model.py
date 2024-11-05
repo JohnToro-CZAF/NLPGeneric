@@ -7,7 +7,8 @@ from models import (
     MultilayerLSTM,
     MultilayerBiLSTM,
     MultilayerGRU,
-    MultilayerBiGRU
+    MultilayerBiGRU,
+    CNN
 )
 
 MODULE_MAP = {
@@ -17,7 +18,8 @@ MODULE_MAP = {
     "LSTM": MultilayerLSTM,
     "BiLSTM": MultilayerBiLSTM,
     "GRU": MultilayerGRU,
-    "BiGRU": MultilayerBiGRU
+    "BiGRU": MultilayerBiGRU,
+    "CNN": CNN
 }
 
 def build_model(config: Dict)-> nn.Module:

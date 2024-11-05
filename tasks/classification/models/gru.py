@@ -59,8 +59,12 @@ class MultilayerGRU(nn.Module):
                 embedding_dim=dim_input,
                 **kwargs
             )
+            
         if embedding_frozen:
-            self.token_embedding.weight.requires_grad = False
+            try:
+                self.token_embedding.weight.requires_grad = False
+            except:
+                self.token_embedding.embedding.weight.requires_grad = False
 
         self.dim_hidden = dim_hidden
         self.dim_output = dim_output
@@ -148,8 +152,12 @@ class MultilayerBiGRU(nn.Module):
                 embedding_dim=dim_input,
                 **kwargs
             )
+        
         if embedding_frozen:
-            self.token_embedding.weight.requires_grad = False
+            try:
+                self.token_embedding.weight.requires_grad = False
+            except:
+                self.token_embedding.embedding.weight.requires_grad = False
 
         self.dim_hidden = dim_hidden
         self.dim_output = dim_output

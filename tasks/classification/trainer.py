@@ -117,11 +117,11 @@ class Trainer:
     eval_metrics_dict = self.get_metrics_dict()
     for input, length, label in self.val_loader:
       output, loss = self.eval_step(input, length, label)
-      val_loss.append(loss/input.size()[0])
+      val_loss.append(loss/input.size()[0]) # average_batch_loss
       for metric_name, metric in eval_metrics_dict.items():
         metric.update(output, label)
     
-    avg_val_loss = sum(val_loss) / len(val_loss)
+    avg_val_loss = sum(val_loss) / len(val_loss) # average_epoch_loss
     result_metrics = {
       metric_name: metric.value() for metric_name, metric in eval_metrics_dict.items()
     }
