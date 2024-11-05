@@ -12,6 +12,35 @@ import metrics
 from metrics import beautify
 
 SUPPORTED_TASKS = ["classification", "causal"]
+class EarlyStopper:
+    def __init__(self, patience=50, min_delta=0, greater_is_better=False):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.greater_is_better = greater_is_better
+        if not greater_is_better:
+            self.min_validation_loss = float('inf')
+        else:
+            self.min_validation_loss = 0.0
+
+    def early_stop(self, validation_loss):
+        if self.greater_is_better:
+            if validation_loss > self.min_validation_loss:
+                self.min_validation_loss = validation_loss
+                self.counter = 0
+            elif validation_loss < (self.min_validation_loss + self.min_delta):
+                self.counter += 1
+                if self.counter >= self.patience:
+                    return True
+        else:
+            if validation_loss < self.min_validation_loss:
+                self.min_validation_loss = validation_loss
+                self.counter = 0
+            elif validation_loss > (self.min_validation_loss + self.min_delta):
+                self.counter += 1
+                if self.counter >= self.patience:
+                    return True
+        return False
 
 class BaseLossFunction(nn.Module):
   def __init__(self):
@@ -45,7 +74,6 @@ class TrainingArgs:
       eval_interval: int,
       training_batch_size: int,
       validation_batch_size: int,
-      early_stopper,
     ):
     """ Training Arguments for the Trainer class
 
@@ -66,7 +94,6 @@ class TrainingArgs:
     self.metric_log_interval = metric_log_interval
     self.training_batch_size = training_batch_size
     self.validation_batch_size = validation_batch_size
-    self.early_stopper = early_stopper
 
 class Trainer:
   def __init__(
@@ -77,7 +104,8 @@ class Trainer:
       val_loader: torch.utils.data.DataLoader,
       optimizer: torch.optim.Optimizer,
       metric_names: list[str],
-      analysis_config: dict
+      analysis_config: dict,
+      early_stopper: EarlyStopper,
     ):
     self.args = training_args
     self.model = model
@@ -87,6 +115,7 @@ class Trainer:
     self.loss_fn = get_loss_fn(self.args.task)
     self.metric_names = metric_names
     self.analysis_config = analysis_config
+    self.early_stopper = early_stopper
     self.metrics_log = {
         'train_loss': [],
         'train_metrics': {metric['name']: [] for metric in self.metric_names},
@@ -117,11 +146,11 @@ class Trainer:
     eval_metrics_dict = self.get_metrics_dict()
     for input, length, label in self.val_loader:
       output, loss = self.eval_step(input, length, label)
-      val_loss.append(loss/input.size()[0]) # average_batch_loss
+      val_loss.append(loss/input.size()[0])
       for metric_name, metric in eval_metrics_dict.items():
         metric.update(output, label)
     
-    avg_val_loss = sum(val_loss) / len(val_loss) # average_epoch_loss
+    avg_val_loss = sum(val_loss) / len(val_loss)
     result_metrics = {
       metric_name: metric.value() for metric_name, metric in eval_metrics_dict.items()
     }
@@ -170,43 +199,86 @@ class Trainer:
     print("Data Metrics: ", data_metrics_dict)
     data_iter = iter(self.train_loader)
     for step_id in tqdm.tqdm(range(self.args.training_steps)):
-      epoch_loss = []
-      epoch_metrics_dict = self.get_metrics_dict()
-      for i, (input, length, label) in tqdm(enumerate(train_loader)):
-        output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
-        epoch_loss.append(loss / input.size()[0])
-        for metric_name, metric in epoch_metrics_dict.items():
-          metric.update(output, label) 
+      try:
+        input, length, label = next(data_iter)
+      except StopIteration:
+        # one epoch is done
+        data_iter = iter(self.train_loader)
+        input, length, label = next(data_iter)
       
-      avg_epoch_loss = sum(epoch_loss) / len(epoch_loss)
-      train_loss += avg_epoch_loss
-      result_metrics = {
-        metric_name: metric.value() for metric_name, metric in epoch_metrics_dict.items()
-      }
+      output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
+      train_loss += loss
+      
       # ! For logging analysis
-      for metric_name, metric in epoch_metrics_dict.items():
+      for metric_name, metric in data_metrics_dict.items():
+          metric.update(output, label)
           value = metric.value()
           self.metrics_log['train_metrics'][metric_name].append(value)
-      self.metrics_log['epoch'].append(step_id + 1)
-      self.metrics_log['train_loss'].append(avg_epoch_loss)
+      self.metrics_log['steps'].append(step_id + 1)
+      self.metrics_log['train_loss'].append(loss/input.size()[0])
       
       # ! For printing
-      result_metrics = {
-        metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
-      }
-      print(
-        f"""Epoch {step_id + 1}:
-            Train Loss: {train_loss / (step_id + 1)},
+      if (step_id + 1) % self.args.metric_log_interval == 0:
+        result_metrics = {
+          metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
+        }
+        print(
+          f"""Step {step_id + 1}:
+            Train Loss: {train_loss / ((step_id + 1) * self.args.training_batch_size) },
             Metrics:{beautify(result_metrics)}"""
-      )
-      es = self.eval()
-      self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
-    
-      self.save_metrics()
+        )
+      
+      if (step_id + 1) % self.args.eval_interval == 0:
+        es = self.eval()
+        self.metrics_log['val_steps'].append(step_id + 1)  # Record validation step
+        self.save_metrics()
+        if es:
+          break
+  
+  def train_epoch(self): # epoch training instead
+    self.model.train()
+    data_metrics_dict = self.get_metrics_dict()
+    print("Data Metrics: ", data_metrics_dict)
+    data_iter = iter(self.train_loader)
+    epoch_id = 0
+    epoch_loss = 0
+    for step_id in tqdm.tqdm(range(self.args.training_steps)):
+      try:
+        input, length, label = next(data_iter)
+      except StopIteration:
+        # ! one epoch is done
+        result_metrics = {
+          metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
+        }
+        print(
+          f"""Step {step_id + 1}:
+            Train Loss: {epoch_loss/len(self.train_loader)},
+            Metrics:{beautify(result_metrics)}"""
+        )
+        # ! For logging analysis
+        for metric_name, metric in data_metrics_dict.items():
+            value = metric.value()
+            self.metrics_log['train_metrics'][metric_name].append(value)
+        self.metrics_log['steps'].append(epoch_id)
+        self.metrics_log['train_loss'].append(epoch_loss/len(self.train_loader))
 
-      if es:
-        break
+        es = self.eval()
+        self.metrics_log['val_steps'].append(epoch_id)  # Record validation step
+        self.save_metrics()
+        if es:
+          break
         
+        epoch_id += 1
+        epoch_loss = 0
+        data_iter = iter(self.train_loader)
+        input, length, label = next(data_iter)
+        data_metrics_dict = self.get_metrics_dict() # ! reset metrics for each epoch
+      
+      output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
+      epoch_loss += loss/input.size()[0]
+      for metric_name, metric in data_metrics_dict.items():
+          metric.update(output, label)
+      
   def save_metrics(self):
       # Save metrics to a JSON file
       metrics_file = os.path.join(self.output_dir, 'metrics.json')

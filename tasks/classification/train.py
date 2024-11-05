@@ -9,38 +9,8 @@ import torch.nn.functional as F
 
 from models import build_model
 from utils.tokenizer import build_tokenizer
-from trainer import Trainer, TrainingArgs
+from trainer import Trainer, TrainingArgs, EarlyStopper
 from dataloader import get_dataloaders
-
-class EarlyStopper:
-    def __init__(self, patience=50, min_delta=0, greater_is_better=False):
-        self.patience = patience
-        self.min_delta = min_delta
-        self.counter = 0
-        self.greater_is_better = greater_is_better
-        if not greater_is_better:
-            self.min_validation_loss = float('inf')
-        else:
-            self.min_validation_loss = 0.0
-
-    def early_stop(self, validation_loss):
-        if self.greater_is_better:
-            if validation_loss > self.min_validation_loss:
-                self.min_validation_loss = validation_loss
-                self.counter = 0
-            elif validation_loss < (self.min_validation_loss + self.min_delta):
-                self.counter += 1
-                if self.counter >= self.patience:
-                    return True
-        else:
-            if validation_loss < self.min_validation_loss:
-                self.min_validation_loss = validation_loss
-                self.counter = 0
-            elif validation_loss > (self.min_validation_loss + self.min_delta):
-                self.counter += 1
-                if self.counter >= self.patience:
-                    return True
-        return False
 
 def checking_config(config):
   # check if the preembedding strategy is compatible with the tokenizer or not
@@ -93,7 +63,7 @@ def main():
   with open(os.path.join(exp_dir, "config.json"), "w") as f:
     json.dump(config, f, indent=4)
 
-  early_stopper = EarlyStopper(patience=20,
+  early_stopper = EarlyStopper(patience=5,
                                min_delta=0,
                                greater_is_better=True)
   
