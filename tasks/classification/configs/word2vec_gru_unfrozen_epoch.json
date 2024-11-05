@@ -40,7 +40,7 @@
         "type": "classification"
     },
     "analysis_config": {
-        "output_dir": "output/gru_layer=4_unfrozen_glove_twitter_25",
+        "output_dir": "output/gru_layer=4_unfrozen_glove_twitter_25_epoch=10",
         "record_metrics": true,
         "record_gradients": true,
         "save_interval": 1000

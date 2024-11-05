@@ -130,7 +130,9 @@ class Trainer:
         'val_loss': [],
         'val_metrics': {metric['name']: [] for metric in self.metric_names},
         'steps': [],
-        'val_steps': []  # Add this line
+        'val_steps': [],  # Add this line
+        'grad_norms': [] if self.analysis_config.get('record_gradients', False) else None,
+        'grad_steps': [] if self.analysis_config.get('record_gradients', False) else None,
     }
     self.output_dir = self.analysis_config.get('output_dir', 'output/exp1')
     os.makedirs(self.output_dir, exist_ok=True)
@@ -198,6 +200,7 @@ class Trainer:
             if p.grad is not None:
                 grad_norm += p.grad.data.norm(2).item()
         self.metrics_log.setdefault('grad_norms', []).append(grad_norm)
+        self.metrics_log.setdefault('grad_steps', []).append(len(self.metrics_log['grad_norms']))
     return output, loss.item()
 
   def train(self):
@@ -247,13 +250,14 @@ class Trainer:
     self.model.train()
     data_metrics_dict = self.get_metrics_dict()
     print("Data Metrics: ", data_metrics_dict)
-    
-    for epoch_id in tqdm.tqdm(range(self.args.epoch)):
+    progress_bar = tqdm.tqdm(range(self.args.epoch))
+    for epoch_id in progress_bar:
       epoch_loss = 0
       data_metrics_dict = self.get_metrics_dict() # ! reset metrics for each epoch
       for input, length, label in self.train_loader:
         output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
         epoch_loss += loss/input.size()[0]
+        progress_bar.set_postfix(loss=f"{loss/input.size()[0]:.4f}")
         for metric_name, metric in data_metrics_dict.items():
             metric.update(output, label)
       
@@ -333,7 +337,7 @@ class Trainer:
       # Save gradient norms if recorded
       if 'grad_norms' in self.metrics_log:
           plt.figure()
-          plt.plot(steps, self.metrics_log['grad_norms'], label='Gradient Norm')
+          plt.plot(self.metrics_log['grad_steps'], self.metrics_log['grad_norms'], label='Gradient Norm')
           plt.xlabel('Steps')
           plt.ylabel('Gradient Norm')
           plt.title('Gradient Norm over Time')
