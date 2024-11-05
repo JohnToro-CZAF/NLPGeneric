@@ -77,7 +77,10 @@ def main():
     analysis_config=config["analysis_config"],
     early_stopper=early_stopper,
   )
-  trainer.train()
+  if training_args.epoch is not None:
+    trainer.train_epoch()
+  else:
+    trainer.train()
 
 if __name__ == "__main__":
   main()

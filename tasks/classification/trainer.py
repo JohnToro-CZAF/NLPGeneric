@@ -69,11 +69,12 @@ class TrainingArgs:
       self, 
       task: str,
       learning_rate: float, 
-      training_steps: int,
-      metric_log_interval: int,
-      eval_interval: int,
       training_batch_size: int,
       validation_batch_size: int,
+      training_steps: int = None,
+      metric_log_interval: int = None,
+      eval_interval: int = None,
+      epoch: int = None # ! DEFAULT USING TRAINING STEPS instead
     ):
     """ Training Arguments for the Trainer class
 
@@ -85,15 +86,22 @@ class TrainingArgs:
         training_batch_size (int): training batch size
         validation_batch_size (int): validation batch size
     """
-    assert task in SUPPORTED_TASKS, f"task should be one of {SUPPORTED_TASKS}"
-    assert metric_log_interval <= training_steps, "metric_log_interval should be less than or equal to training"
-    self.task = task
-    self.learning_rate = learning_rate
-    self.training_steps = training_steps
-    self.eval_interval = eval_interval
-    self.metric_log_interval = metric_log_interval
-    self.training_batch_size = training_batch_size
-    self.validation_batch_size = validation_batch_size
+    if epoch is not None:
+      self.task = task
+      self.epoch = epoch
+      self.learning_rate = learning_rate
+      self.training_batch_size = training_batch_size
+      self.validation_batch_size = validation_batch_size
+    else:
+      assert task in SUPPORTED_TASKS, f"task should be one of {SUPPORTED_TASKS}"
+      assert metric_log_interval <= training_steps, "metric_log_interval should be less than or equal to training"
+      self.task = task
+      self.learning_rate = learning_rate
+      self.training_steps = training_steps
+      self.eval_interval = eval_interval
+      self.metric_log_interval = metric_log_interval
+      self.training_batch_size = training_batch_size
+      self.validation_batch_size = validation_batch_size
 
 class Trainer:
   def __init__(
@@ -239,45 +247,37 @@ class Trainer:
     self.model.train()
     data_metrics_dict = self.get_metrics_dict()
     print("Data Metrics: ", data_metrics_dict)
-    data_iter = iter(self.train_loader)
-    epoch_id = 0
-    epoch_loss = 0
-    for step_id in tqdm.tqdm(range(self.args.training_steps)):
-      try:
-        input, length, label = next(data_iter)
-      except StopIteration:
-        # ! one epoch is done
-        result_metrics = {
-          metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
-        }
-        print(
-          f"""Step {step_id + 1}:
-            Train Loss: {epoch_loss/len(self.train_loader)},
-            Metrics:{beautify(result_metrics)}"""
-        )
-        # ! For logging analysis
+    
+    for epoch_id in tqdm.tqdm(range(self.args.epoch)):
+      epoch_loss = 0
+      data_metrics_dict = self.get_metrics_dict() # ! reset metrics for each epoch
+      for input, length, label in self.train_loader:
+        output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
+        epoch_loss += loss/input.size()[0]
         for metric_name, metric in data_metrics_dict.items():
-            value = metric.value()
-            self.metrics_log['train_metrics'][metric_name].append(value)
-        self.metrics_log['steps'].append(epoch_id)
-        self.metrics_log['train_loss'].append(epoch_loss/len(self.train_loader))
-
-        es = self.eval()
-        self.metrics_log['val_steps'].append(epoch_id)  # Record validation step
-        self.save_metrics()
-        if es:
-          break
-        
-        epoch_id += 1
-        epoch_loss = 0
-        data_iter = iter(self.train_loader)
-        input, length, label = next(data_iter)
-        data_metrics_dict = self.get_metrics_dict() # ! reset metrics for each epoch
+            metric.update(output, label)
       
-      output, loss = self.train_step(input, length, label) # output : (batch_size, seq_len, num_classes)
-      epoch_loss += loss/input.size()[0]
+      # ! one epoch is done
+      result_metrics = {
+        metric_name: metric.value() for metric_name, metric in data_metrics_dict.items()
+      }
+      print(
+        f"""Epoch {epoch_id}:
+          Train Loss: {epoch_loss/len(self.train_loader)},
+          Metrics:{beautify(result_metrics)}"""
+      )
+      # ! For logging analysis
       for metric_name, metric in data_metrics_dict.items():
-          metric.update(output, label)
+          value = metric.value()
+          self.metrics_log['train_metrics'][metric_name].append(value)
+      self.metrics_log['steps'].append(epoch_id)
+      self.metrics_log['train_loss'].append(epoch_loss/len(self.train_loader))
+
+      es = self.eval()
+      self.metrics_log['val_steps'].append(epoch_id)  # Record validation step
+      self.save_metrics()
+      if es:
+        break
       
   def save_metrics(self):
       # Save metrics to a JSON file
