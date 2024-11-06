@@ -115,6 +115,8 @@ class Trainer:
       analysis_config: dict,
       early_stopper: EarlyStopper,
       model_type: str,
+      aggregation: str,
+      save_model: bool
     ):
     self.args = training_args
     self.model = model
@@ -137,6 +139,8 @@ class Trainer:
         'grad_steps': [] if self.analysis_config.get('record_gradients', False) else None,
     }
     self.output_dir = self.analysis_config.get('output_dir', 'output/exp1')
+    self.aggregation = aggregation
+    self.save_model = save_model
     os.makedirs(self.output_dir, exist_ok=True)
   
   def get_metrics_dict(self):
@@ -149,8 +153,14 @@ class Trainer:
     output = output.to("cpu")
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
+    
     if self.model_type!='CNN':
-      output = output[range(input.size()[0]), length - 1]
+      if self.aggregation=='last':
+        output = output[range(input.size()[0]), length - 1]
+      elif self.aggregation=='mean':
+        output = torch.mean(output, axis=1)
+      elif self.aggregation=='max':
+        output = torch.max(output, axis=1).values
     loss = self.loss_fn(output, label)
     return output, loss.item()
 
@@ -192,7 +202,13 @@ class Trainer:
     output = self.model(input) # output : (batch_size, seq_len, num_classes)
     output = output.to("cpu")
     if self.model_type!='CNN':
-      output = output[range(input.size()[0]), length - 1]
+      if self.aggregation=='last':
+        output = output[range(input.size()[0]), length - 1]
+      if self.aggregation=='mean':
+        output = torch.mean(output, axis=1)
+      if self.aggregation=='max':
+        output = torch.max(output, axis=1).values
+
     loss = self.loss_fn(output, label)
     loss.backward()
     self.optimizer.step()
@@ -250,7 +266,8 @@ class Trainer:
         if es:
           break
     # save model after training
-    torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
+    if self.save_model:
+      torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
   
   def train_epoch(self): # epoch training instead
     self.model.train()
@@ -288,7 +305,8 @@ class Trainer:
       self.save_metrics()
       if es:
         break
-    torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
+    if self.save_model:
+      torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
 
   def save_metrics(self):
       # Save metrics to a JSON file

@@ -33,6 +33,10 @@ def checking_config(config):
     if "dim_input" not in config["model_config"]["args"]:
       raise ValueError("Please specify dim_input for word2vec or glove embedding strategy")
 
+  if config['model_config']['model_type']=='CNN':
+    if 'aggregation' in config['model_config']['args']:
+      raise ValueError("Aggregation method is only available for sequential models (RNN, LSTM, GRU)")
+
 def main():
   argparser = argparse.ArgumentParser()
   argparser.add_argument("--config", type=str, required=True)
@@ -45,6 +49,9 @@ def main():
   training_args = TrainingArgs(
     **config["trainer_args"]
   )
+
+  aggregation = config['model_config']['args'].get('aggregation', 'last')
+  save_model = config['training_args'].get('save_model', False)
   model_type = config['model_config']['model_type']
   model = build_model(config["model_config"])
   model.to("cuda")
@@ -77,7 +84,9 @@ def main():
     metric_names=config["metric_config"]["metrics"],
     analysis_config=config["analysis_config"],
     early_stopper=early_stopper,
-    model_type=model_type
+    model_type=model_type,
+    aggregation=aggregation,
+    save_model=save_model
   )
   if training_args.epoch is not None:
     trainer.train_epoch()

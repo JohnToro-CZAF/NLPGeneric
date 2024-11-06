@@ -51,6 +51,7 @@ def main():
     **config["trainer_args"]
   )
 
+  aggregation = config['model_config']['args'].get('aggregation', 'last')
   model_type = config['model_config']['model_type']
   model = build_model(config["model_config"])
   model_path = os.path.join(config['analysis_config']['output_dir'], 'model.pth')
@@ -79,7 +80,8 @@ def main():
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
     if model_type!='CNN':
-      output = output[range(input.size()[0]), length - 1]
+      if aggregation=='last':
+        output = output[range(input.size()[0]), length - 1]
     for metric_name, metric in metric_dict.items():
       metric.update(output, label)
   result_metrics = {
