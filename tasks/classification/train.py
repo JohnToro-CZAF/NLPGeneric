@@ -51,7 +51,10 @@ def main():
   )
 
   aggregation = config['model_config']['args'].get('aggregation', 'last')
-  save_model = config['training_args'].get('save_model', False)
+
+  if aggregation=='attention':
+    config['model_config']['args']['attention'] = True
+  save_model = config['trainer_args'].get('save_model', False)
   model_type = config['model_config']['model_type']
   model = build_model(config["model_config"])
   model.to("cuda")
@@ -86,7 +89,6 @@ def main():
     early_stopper=early_stopper,
     model_type=model_type,
     aggregation=aggregation,
-    save_model=save_model
   )
   if training_args.epoch is not None:
     trainer.train_epoch()
