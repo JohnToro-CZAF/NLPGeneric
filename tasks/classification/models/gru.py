@@ -45,7 +45,7 @@ class GRUSubLayer(nn.Module):
         return H
 
 class MultilayerGRU(nn.Module):
-    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, attention=False,**kwargs):
         super(MultilayerGRU, self).__init__()
         self.embedding_strategy = embedding_strategy
 
@@ -69,6 +69,10 @@ class MultilayerGRU(nn.Module):
         self.dim_hidden = dim_hidden
         self.dim_output = dim_output
         self.num_layers = num_layers
+        self.attention = attention
+
+        if self.attention:
+            self.attention_layer = nn.Linear(dim_hidden, 1, bias=False)
 
         # Stack GRU layers
         self.gru_layers = nn.ModuleList()
@@ -102,9 +106,19 @@ class MultilayerGRU(nn.Module):
             input_seq = outputs  # Input to the next layer
 
         # Apply the output layer to the last layer's outputs
-        logits = self.fc(outputs)  # Shape: [batch_size, seq_len, dim_output]
-        preds = self.softmax(logits)
-        return preds
+        if self.attention:
+            attn_weights = self.attention_layer(outputs)
+            attn_weights = torch.tanh(attn_weights)
+            attn_weights = nn.functional.softmax(attn_weights, dim=1)
+
+            attn_output = torch.sum(attn_weights * outputs, dim=1)
+            logits = self.fc(attn_output)
+            preds = self.softmax(logits)
+            return preds
+        else:
+            outputs = self.output_layer(outputs)
+            outputs = self.softmax(outputs)
+            return outputs
     
 class BiGRUSubLayer(nn.Module):
     def __init__(self, dim_input, dim_hidden):
@@ -138,7 +152,7 @@ class BiGRUSubLayer(nn.Module):
         return (H_fwd, H_bwd)
 
 class MultilayerBiGRU(nn.Module):
-    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, attention=False,**kwargs):
         super(MultilayerBiGRU, self).__init__()
         self.embedding_strategy = embedding_strategy
 
@@ -162,7 +176,9 @@ class MultilayerBiGRU(nn.Module):
         self.dim_hidden = dim_hidden
         self.dim_output = dim_output
         self.num_layers = num_layers
-
+        self.attention = attention
+        if self.attention:
+            self.attention_layer = nn.Linear(2*dim_hidden, 1, bias=False)
         # Stack BiGRU layers
         self.gru_layers = nn.ModuleList()
         for layer in range(num_layers):
@@ -195,6 +211,16 @@ class MultilayerBiGRU(nn.Module):
             input_seq = outputs  # Input to the next layer
 
         # Apply the output layer to the last layer's outputs
-        logits = self.fc(outputs)  # Shape: [batch_size, seq_len, dim_output]
-        preds = self.softmax(logits)
-        return preds
+        if self.attention:
+            attn_weights = self.attention_layer(outputs)
+            attn_weights = torch.tanh(attn_weights)
+            attn_weights = nn.functional.softmax(attn_weights, dim=1)
+
+            attn_output = torch.sum(attn_weights * outputs, dim=1)
+            logits = self.fc(attn_output)
+            preds = self.softmax(logits)
+            return preds
+        else:
+            outputs = self.output_layer(outputs)
+            outputs = self.softmax(outputs)
+            return outputs

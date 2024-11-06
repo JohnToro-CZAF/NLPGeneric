@@ -47,7 +47,7 @@ class LSTMSubLayer(nn.Module):
         C = torch.zeros(batch_size, self.hidden_size).to(device)
         return (H, C)
 class MultilayerLSTM(nn.Module):
-    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, attention=False, **kwargs):
         super(MultilayerLSTM, self).__init__()
         self.embedding_strategy = embedding_strategy
 
@@ -67,6 +67,9 @@ class MultilayerLSTM(nn.Module):
             except:
                 self.token_embedding.embedding.weight.requires_grad = False
 
+        self.attention = attention
+        if self.attention:
+            self.attention_layer = nn.Linear(2*dim_hidden, 1, bias=False)
         self.dim_input = dim_input
         self.dim_output = dim_output
         self.dim_hidden = dim_hidden
@@ -91,6 +94,7 @@ class MultilayerLSTM(nn.Module):
         batch_size = input.size(0)
         device = input.device
 
+        
         # Embedding layer
         embedded = self.token_embedding(input)  # Shape: [batch_size, seq_len, embedding_dim]
 
@@ -104,9 +108,19 @@ class MultilayerLSTM(nn.Module):
             input_seq = outputs  # Input to the next layer
 
         # Apply the output layer to the last layer's outputs
-        logits = self.fc(outputs)  # Shape: [batch_size, seq_len, output_size]
-        preds = self.softmax(logits)
-        return preds
+        if self.attention:
+            attn_weights = self.attention_layer(outputs)
+            attn_weights = torch.tanh(attn_weights)
+            attn_weights = nn.functional.softmax(attn_weights, dim=1)
+
+            attn_output = torch.sum(attn_weights * outputs, dim=1)
+            logits = self.fc(attn_output)
+            preds = self.softmax(logits)
+            return preds
+        else:
+            outputs = self.output_layer(outputs)
+            outputs = self.softmax(outputs)
+            return outputs
 
 class BiLSTMSubLayer(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -140,7 +154,7 @@ class BiLSTMSubLayer(nn.Module):
         return ((H_fwd, C_fwd), (H_bwd, C_bwd))
 
 class MultilayerBiLSTM(nn.Module):
-    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers=1, embedding_strategy='random', embedding_frozen=True, attention=False,**kwargs):
         super(MultilayerBiLSTM, self).__init__()
         self.embedding_strategy = embedding_strategy
 
@@ -164,6 +178,9 @@ class MultilayerBiLSTM(nn.Module):
         self.dim_hidden = dim_hidden
         self.dim_output = dim_output
         self.num_layers = num_layers
+        self.attention = attention
+        if self.attention:
+            self.attention_layer = nn.Linear(2*dim_hidden, 1, bias=False)
 
         # Stack BiLSTM layers
         self.lstm_layers = nn.ModuleList()
@@ -197,6 +214,16 @@ class MultilayerBiLSTM(nn.Module):
             input_seq = outputs  # Input to the next layer
 
         # Apply the output layer to the last layer's outputs
-        logits = self.fc(outputs)  # Shape: [batch_size, seq_len, output_size]
-        preds = self.softmax(logits)
-        return preds
+        if self.attention:
+            attn_weights = self.attention_layer(outputs)
+            attn_weights = torch.tanh(attn_weights)
+            attn_weights = nn.functional.softmax(attn_weights, dim=1)
+
+            attn_output = torch.sum(attn_weights * outputs, dim=1)
+            logits = self.fc(attn_output)
+            preds = self.softmax(logits)
+            return preds
+        else:
+            outputs = self.output_layer(outputs)
+            outputs = self.softmax(outputs)
+            return outputs
