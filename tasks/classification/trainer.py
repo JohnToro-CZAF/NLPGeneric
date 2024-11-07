@@ -110,6 +110,7 @@ class Trainer:
       training_args: TrainingArgs, 
       train_loader: torch.utils.data.DataLoader,
       val_loader: torch.utils.data.DataLoader,
+      test_loader: torch.utils.data.DataLoader,
       optimizer: torch.optim.Optimizer,
       metric_names: list[str],
       analysis_config: dict,
@@ -120,6 +121,7 @@ class Trainer:
     self.model = model
     self.train_loader = train_loader
     self.val_loader = val_loader
+    self.test_loader = test_loader
     self.optimizer = optimizer
     self.loss_fn = get_loss_fn(self.args.task)
     self.metric_names = metric_names
@@ -131,6 +133,8 @@ class Trainer:
         'train_metrics': {metric['name']: [] for metric in self.metric_names},
         'val_loss': [],
         'val_metrics': {metric['name']: [] for metric in self.metric_names},
+        'test_loss': [],
+        'test_metrics': {metric['name']: [] for metric in self.metric_names},
         'steps': [],
         'val_steps': [],  # Add this line
         'grad_norms': [] if self.analysis_config.get('record_gradients', False) else None,
@@ -141,7 +145,45 @@ class Trainer:
   
   def get_metrics_dict(self):
     return {metric["name"]: metrics.build(metric["name"], metric["args"]) for metric in self.metric_names}
+  
+  def test_step(self, input, length, label):
+    input = input.to("cuda")
+    with torch.no_grad():
+      output = self.model(input)
+    output = output.to("cpu")
+    # outputs : (batch_size, seq_len, num_classes)
+    # result : (batch_size, num_classes)
+    if self.model_type!='CNN':
+      output = output[range(input.size()[0]), length - 1]
+    loss = self.loss_fn(output, label)
+    return output, loss.item()
 
+  def test(self):
+    test_loss = []
+    test_metrics_dict = self.get_metrics_dict()
+    for input, length, label in self.test_loader:
+      output, loss = self.eval_step(input, length, label)
+      test_loss.append(loss/input.size()[0])
+      for metric_name, metric in test_metrics_dict.items():
+        metric.update(output, label)
+    
+    avg_test_loss = sum(test_loss) / len(test_loss)
+    result_metrics = {
+      metric_name: metric.value() for metric_name, metric in test_metrics_dict.items()
+    }
+    
+    # ! For printing
+    print(
+      f"""Testing result:
+        Test Loss: {avg_test_loss},
+        Metrics: {beautify(result_metrics)}"""
+    )
+    
+    # ! For logging analysis
+    self.metrics_log['test_loss'].append(avg_test_loss)
+    for metric_name, value in result_metrics.items():
+        self.metrics_log['test_metrics'][metric_name].append(value)
+      
   def eval_step(self, input, length, label):
     input = input.to("cuda")
     with torch.no_grad():
@@ -289,6 +331,8 @@ class Trainer:
       if es:
         break
     torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
+    self.test()
+    self.save_metrics()
 
   def save_metrics(self):
       # Save metrics to a JSON file

@@ -1,0 +1,46 @@
+{
+    "model_config": {
+        "model_type": "RNN",
+        "args" : {
+            "dim_input": 300,
+            "dim_hidden": 128,
+            "dim_output": 2,
+            "embedding_strategy": "word2vec",
+            "pretrained_path": "word2vec-google-news-300",
+            "embedding_frozen": false,
+            "oov_handing": "average"
+        }
+    },
+    "tokenizer_config": {
+        "tokenizer_type": "bpe",
+        "args": {
+            "pretrained_path": "/home/johntoro/code/NLP_Collections/tasks/classification/utils/tokenizer/cache/shakespeare"
+        }
+    },
+    "trainer_args": {
+        "task": "classification",
+        "training_batch_size": 32,
+        "validation_batch_size": 32,
+        "learning_rate": 0.0001,
+        "epoch": 30
+    }, 
+    "metric_config": {
+        "metrics": [
+            {"name": "accuracy", "args": {}},
+            {"name": "f1", "args": {}},
+            {"name": "precision", "args": {}},
+            {"name": "recall", "args": {}}
+        ]
+    },
+    "data_config": {
+        "name": "rotten_tomatoes",
+        "is_huggingface": true,
+        "type": "classification"
+    },
+    "analysis_config": {
+        "output_dir": "experiments/tokenizer/bpe_word2vec_average",
+        "record_metrics": true,
+        "record_gradients": true,
+        "save_interval": 1000
+    }
+}

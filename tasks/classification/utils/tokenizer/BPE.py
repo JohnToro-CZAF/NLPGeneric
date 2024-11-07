@@ -29,6 +29,18 @@ class BPETokenizer(BaseTokenizer):
     if "<pad>" in self.vocab:
       self.pad_id = self.vocab_ids["<pad>"]
     self.unk_id = self.vocab_ids["<UNK>"]
+    self._idx2word = {idx: word for word, idx in self.vocab_ids.items()}
+  
+  def get_vocab_size(self):
+    return len(self.vocab_ids)
+  
+  @property
+  def word2idx(self):
+    return self.vocab_ids
+  
+  @property
+  def idx2word(self):
+    return self._idx2word
   
   @classmethod
   def from_pretrained(cls, folder_path: str):

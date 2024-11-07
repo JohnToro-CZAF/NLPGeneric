@@ -42,11 +42,13 @@ def collect_experiment_data(exp_folder):
         # Extract final metrics
         exp_data['Final Training Loss'] = metrics['train_loss'][-1] if metrics['train_loss'] else None
         exp_data['Final Validation Loss'] = metrics['val_loss'][-1] if metrics['val_loss'] else None
+        exp_data['Final Testing Loss'] = metrics['test_loss'][-1] if metrics['test_loss'] else None
 
         # Assuming 'accuracy' is one of the metrics
         if 'accuracy' in metrics['train_metrics']:
             exp_data['Final Training Accuracy'] = metrics['train_metrics']['accuracy'][-1] if metrics['train_metrics']['accuracy'] else None
             exp_data['Final Validation Accuracy'] = metrics['val_metrics']['accuracy'][-1] if metrics['val_metrics']['accuracy'] else None
+            exp_data['Final Testing Accuracy'] = metrics['test_metrics']['accuracy'][-1] if metrics['test_metrics']['accuracy'] else None
         else:
             exp_data['Final Training Accuracy'] = None
             exp_data['Final Validation Accuracy'] = None
@@ -340,8 +342,8 @@ def generate_html_table(experiments_data, output_file, important_columns):
         f.write(html_content)
     print(f'Experiment summary saved to {output_file}')
 
-def main():
-    output_folder = 'output'
+def main(args):
+    output_folder = args.output_folder
     experiments_data = []
 
     # List all experiment folders
@@ -361,6 +363,8 @@ def main():
         'model_config.args.dim_hidden',
         'Final Validation Accuracy',
         'Final Validation Loss',
+        'Final Testing Accuracy',
+        'Final Testing Loss',
         # Add or remove columns as needed
     ]
 
@@ -376,4 +380,8 @@ def main():
     generate_html_table(experiments_data, output_file, important_columns)
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate a summary of experiment results in HTML format.")
+    parser.add_argument("-o", "--output_folder", type=str, help="Path to the folder containing experiment results.")
+    args = parser.parse_args()
+    main(args)

@@ -35,16 +35,17 @@ class RNNLayer(nn.Module):
     return torch.zeros(batch_size, self.dim_hidden).to(device)
 
 class DeepRNN(nn.Module):
-  def __init__(self, vocab_size, dim_input, dim_hidden, num_layers, direction=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+  def __init__(self, dim_input, dim_hidden, num_layers, tokenizer, direction=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
     super(DeepRNN, self).__init__()
+    self.tokenizer = tokenizer
     
     self.embedding_strategy = embedding_strategy
     if embedding_strategy == "empty": # TODO: for baseline only
-      self.token_embedding = nn.Embedding(vocab_size, dim_input)
+      self.token_embedding = nn.Embedding(tokenizer.get_vocab_size(), dim_input)
     else:
       self.token_embedding = build_preembedding(
           strategy=embedding_strategy,
-          vocab_size=vocab_size,
+          tokenizer=tokenizer,
           embedding_dim=dim_input,
           **kwargs
       )
@@ -78,7 +79,7 @@ class DeepRNN(nn.Module):
     return torch.zeros(batch_size, self.dim_hidden)
 
 class BiDeepRNN(nn.Module):
-  def __init__(self, vocab_size, dim_input, dim_hidden, dim_output, num_layers, embedding_strategy='random', embedding_frozen=True, **kwargs):
+  def __init__(self, dim_input, dim_hidden, dim_output, num_layers, tokenizer, embedding_strategy='random', embedding_frozen=True, **kwargs):
     super(BiDeepRNN, self).__init__()
 
     self.dim_input = dim_input
@@ -86,8 +87,8 @@ class BiDeepRNN(nn.Module):
     self.dim_output = dim_output
     self.num_layers = num_layers
 
-    self.rnn_layers_forward = DeepRNN(vocab_size, dim_input, dim_hidden, num_layers, direction=1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
-    self.rnn_layers_backward = DeepRNN(vocab_size, dim_input, dim_hidden, num_layers, direction=-1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
+    self.rnn_layers_forward = DeepRNN(dim_input, dim_hidden, num_layers, tokenizer, direction=1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
+    self.rnn_layers_backward = DeepRNN(dim_input, dim_hidden, num_layers, tokenizer, direction=-1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
     self.output_layer = nn.Linear(2*dim_hidden, dim_output)
     self.softmax = nn.LogSoftmax(dim=-1)
 
