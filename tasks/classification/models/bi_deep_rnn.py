@@ -79,13 +79,17 @@ class DeepRNN(nn.Module):
     return torch.zeros(batch_size, self.dim_hidden)
 
 class BiDeepRNN(nn.Module):
-  def __init__(self, dim_input, dim_hidden, dim_output, num_layers, tokenizer, embedding_strategy='random', embedding_frozen=True, **kwargs):
+  def __init__(self, dim_input, dim_hidden, dim_output, num_layers, tokenizer, embedding_strategy='random', embedding_frozen=True, attention=False,**kwargs):
     super(BiDeepRNN, self).__init__()
 
     self.dim_input = dim_input
     self.dim_hidden = dim_hidden
     self.dim_output = dim_output
     self.num_layers = num_layers
+    self.attention = attention
+    if self.attention:
+      self.attention_layer = nn.Linear(2*dim_hidden, 1, bias=False)
+
 
     self.rnn_layers_forward = DeepRNN(dim_input, dim_hidden, num_layers, tokenizer, direction=1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
     self.rnn_layers_backward = DeepRNN(dim_input, dim_hidden, num_layers, tokenizer, direction=-1, embedding_strategy=embedding_strategy, embedding_frozen=embedding_frozen, **kwargs)
@@ -98,6 +102,16 @@ class BiDeepRNN(nn.Module):
     bs = self.rnn_layers_backward(input)
     outputs = torch.cat((fs, torch.flip(bs, dims=(1,))), dim=-1)    
     # outputs : (batch_size, seq_len, 2*dim_hidden)
-    outputs = self.output_layer(outputs)
-    outputs = self.softmax(outputs)
-    return outputs
+    if self.attention:
+      attn_weights = self.attention_layer(outputs)
+      attn_weights = torch.tanh(attn_weights)
+      attn_weights = nn.functional.softmax(attn_weights, dim=1)
+
+      attn_output = torch.sum(attn_weights * outputs, dim=1)
+      logits = self.output_layer(attn_output)
+      preds = self.softmax(logits)
+      return preds
+    else:
+      outputs = self.output_layer(outputs)
+      outputs = self.softmax(outputs)
+      return outputs

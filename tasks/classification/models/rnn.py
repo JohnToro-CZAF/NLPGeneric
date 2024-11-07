@@ -105,7 +105,7 @@ class RNNSubLayer(nn.Module):
         return torch.zeros(batch_size, self.hidden_size).to(device)
 
 class MultilayerRNN(nn.Module):
-    def __init__(self, dim_input, dim_hidden, dim_output, tokenizer, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    def __init__(self, dim_input, dim_hidden, dim_output, tokenizer, num_layers=1, embedding_strategy='random', embedding_frozen=True, attention=False, **kwargs):
         super(MultilayerRNN, self).__init__()
         self.embedding_strategy = embedding_strategy
         self.tokenizer = tokenizer
@@ -130,6 +130,7 @@ class MultilayerRNN(nn.Module):
         self.dim_hidden = dim_hidden
         self.dim_output = dim_output
         self.num_layers = num_layers
+        self.attention = attention
 
         # Stack RNN layers
         self.rnn_layers = nn.ModuleList()
@@ -137,6 +138,10 @@ class MultilayerRNN(nn.Module):
             input_size = dim_input if layer == 0 else dim_hidden
             self.rnn_layers.append(RNNSubLayer(input_size, dim_hidden))
 
+        # attention layers
+        if self.attention:
+          self.attention_layer = nn.Linear(dim_hidden, 1, bias=False)
+        
         # Output layer
         self.fc = nn.Linear(dim_hidden, dim_output)
         self.softmax = nn.LogSoftmax(dim=-1)
@@ -162,7 +167,17 @@ class MultilayerRNN(nn.Module):
             outputs = layer(input_seq, hidden_states[idx])
             input_seq = outputs  # Input to the next layer
 
+        if self.attention:
+          attn_weights = self.attention_layer(outputs)
+          attn_weights = torch.tanh(attn_weights)
+          attn_weights = nn.functional.softmax(attn_weights, dim=1)
+
+          attn_output = torch.sum(attn_weights * outputs, dim=1)
+          logits = self.fc(attn_output)
+          preds = self.softmax(logits)
+          return preds
+        else:
         # Output layer
-        logits = self.fc(outputs)
-        preds = self.softmax(logits)
-        return preds
+          logits = self.fc(outputs)
+          preds = self.softmax(logits)
+          return preds
