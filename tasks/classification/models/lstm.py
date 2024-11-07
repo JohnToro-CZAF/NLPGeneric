@@ -118,7 +118,7 @@ class MultilayerLSTM(nn.Module):
             preds = self.softmax(logits)
             return preds
         else:
-            outputs = self.output_layer(outputs)
+            outputs = self.fc(outputs)
             outputs = self.softmax(outputs)
             return outputs
 
@@ -224,6 +224,6 @@ class MultilayerBiLSTM(nn.Module):
             preds = self.softmax(logits)
             return preds
         else:
-            outputs = self.output_layer(outputs)
+            outputs = self.fc(outputs)
             outputs = self.softmax(outputs)
             return outputs
