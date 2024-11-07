@@ -107,7 +107,7 @@ class BiDeepRNN(nn.Module):
       attn_weights = nn.functional.softmax(attn_weights, dim=1)
 
       attn_output = torch.sum(attn_weights * outputs, dim=1)
-      logits = self.fc(attn_output)
+      logits = self.output_layer(attn_output)
       preds = self.softmax(logits)
       return preds
     else:
