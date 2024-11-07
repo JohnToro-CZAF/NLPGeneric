@@ -32,6 +32,16 @@ class ClassificationDataset(torch.utils.data.Dataset):
     ids = torch.tensor(ids)
     return ids, length, label
 
+  def count(self, idx):
+    item = self.dataset[idx]
+    text = item["text"]
+    res = self.tokenizer.tokenize(text)
+    ids = res["ids"]
+    tokens = res["tokens"]
+    length = len(ids)
+    n_unks = sum([1 for i in ids if i == self.tokenizer.unk_id])
+    return n_unks, length
+
 def get_dataloaders(
   tokenizer: BaseTokenizer,
   dataset_args: Dict,
@@ -51,14 +61,37 @@ def get_dataloaders(
     dataset = load_dataset(dataset_args["path"])
   
   if training_args.task == "classification":
+    print("Tokenizer unk id:",tokenizer.unk_id)
     train_dataset = ClassificationDataset(dataset["train"], tokenizer)
     validation_dataset = ClassificationDataset(dataset["validation"], tokenizer)
     test_dataset = ClassificationDataset(dataset["test"], tokenizer)
+    
+    n_unks, n_total = 0, 0
+    for i in range(len(train_dataset)):
+      n_unks_i, n_total_i = train_dataset.count(i)
+      n_unks += n_unks_i
+      n_total += n_total_i
+    print(f"Train set: {n_unks} UNKs out of {n_total} tokens")
+    
+    n_unks, n_total = 0, 0
+    for i in range(len(validation_dataset)):
+      n_unks_i, n_total_i = validation_dataset.count(i)
+      n_unks += n_unks_i
+      n_total += n_total_i
+    print(f"Validation set: {n_unks} UNKs out of {n_total} tokens")
+    
+    n_unks, n_total = 0, 0
+    for i in range(len(test_dataset)):
+      n_unks_i, n_total_i = test_dataset.count(i)
+      n_unks += n_unks_i
+      n_total += n_total_i
+    print(f"Test set: {n_unks} UNKs out of {n_total} tokens")
     # partial function to be used in DataLoader
     def padding_fn(batch):
       (xx, lengths, yy) = zip(*batch)
       xx_pad = pad_sequence(xx, batch_first=True, padding_value=tokenizer.pad_id)
       return xx_pad, torch.tensor(lengths), torch.tensor(yy)
+    
     train_loader = DataLoader(train_dataset, batch_size=training_bs, shuffle=True, collate_fn=padding_fn)
     val_loader   = DataLoader(validation_dataset, batch_size=val_bs, shuffle=True, collate_fn=padding_fn)
     test_loader  = DataLoader(test_dataset, batch_size=val_bs, shuffle=True, collate_fn=padding_fn)

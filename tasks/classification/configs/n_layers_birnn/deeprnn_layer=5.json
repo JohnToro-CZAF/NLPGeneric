@@ -1,29 +1,30 @@
 {
     "model_config": {
-        "model_type": "RNN",
+        "model_type": "BiDeepRNN",
         "args" : {
-            "vocab_size": 4935,
-            "dim_input": 64,
-            "dim_hidden": 128,
+            "dim_input": 300,
+            "dim_hidden": 256,
+            "num_layers": 5,
             "dim_output": 2,
-            "embedding_strategy": "empty",
-            "embedding_frozen": false
+            "embedding_strategy": "word2vec",
+            "pretrained_path": "word2vec-google-news-300",
+            "embedding_frozen": false,
+            "context_window": 5,
+            "oov_handing": "average_context"
         }
     },
     "tokenizer_config": {
-        "tokenizer_type": "bpe",
+        "tokenizer_type": "nltk",
         "args": {
-            "pretrained_path": "/home/johntoro/code/NLP_Collections/tasks/classification/utils/tokenizer/cache/shakespeare"
+            "dataset": "rotten_tomatoes"
         }
     },
     "trainer_args": {
         "task": "classification",
         "training_batch_size": 32,
         "validation_batch_size": 32,
-        "training_steps": 100000,
-        "metric_log_interval": 10000,
-        "eval_interval": 500,
-        "learning_rate": 0.001
+        "learning_rate": 0.0001,
+        "epoch": 30
     }, 
     "metric_config": {
         "metrics": [
@@ -39,7 +40,7 @@
         "type": "classification"
     },
     "analysis_config": {
-        "output_dir": "output/rnn_empty",
+        "output_dir": "experiments/n_layers/bideeprnn_layer=5",
         "record_metrics": true,
         "record_gradients": true,
         "save_interval": 1000

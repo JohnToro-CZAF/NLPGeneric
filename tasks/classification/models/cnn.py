@@ -3,17 +3,17 @@ import torch.nn as nn
 from .preembeddings import build_preembedding
 
 class CNN(nn.Module):
-    def __init__(self, vocab_size, dim_input, dim_output, filter_sizes, num_filters, dropout=0.5, embedding_strategy='random', embedding_frozen=True, **kwargs):
+    def __init__(self, dim_input, dim_output, tokenizer, filter_sizes, num_filters, dropout=0.5, embedding_strategy='random', embedding_frozen=True, **kwargs):
         super(CNN, self).__init__()
         self.embedding_strategy = embedding_strategy
 
         # Initialize the embedding layer
         if embedding_strategy == "empty":  # For baseline only
-            self.token_embedding = nn.Embedding(vocab_size, dim_input)
+            self.token_embedding = nn.Embedding(tokenizer.get_vocab_size(), dim_input)
         else:
             self.token_embedding = build_preembedding(
+                tokenizer=tokenizer,
                 strategy=embedding_strategy,
-                vocab_size=vocab_size,
                 embedding_dim=dim_input,
                 **kwargs
             )
@@ -24,8 +24,6 @@ class CNN(nn.Module):
                 self.token_embedding.weight.requires_grad = False
             except:
                 self.token_embedding.embedding.weight.requires_grad = False
-        else:
-            self.token_embedding = nn.Embedding(vocab_size, dim_input)
         
         # Convolution layers with multiple filter sizes
         self.convs = nn.ModuleList([
