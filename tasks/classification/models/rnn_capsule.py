@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 from .preembeddings import build_preembedding
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import math
 # Adapted from https://github.com/thuwyq/WWW18-rnn-capsule/blob/master/attentionlayer.py
 class Attention(nn.Module):
     def __init__(self, attention_size, return_attention=False, use_cuda=True):
@@ -129,20 +131,18 @@ class EncoderRNN(nn.Module):
     # def init_weights(self, embed_list):
         # self.embed.weight.data.copy_(torch.from_numpy(embed_list))
 
-    def forward(self, input):
+    def forward(self, input, lengths):
 
         hidden = self.init_hidden(input.size()[0])
         embedded = self.embed(input)
         embedded = self.embed_dropout(embedded)
-        input_packed = pack_padded_sequence(embedded, lengths=lengths, batch_first=True)
-        output, hidden = self.rnn(input_packed, hidden)
-        output_pad, output_len = pad_packed_sequence(output, batch_first=True)
+        output, hidden = self.rnn(embedded, hidden)
 
-        variable_len = Variable(torch.from_numpy(1.0/lengths.astype(np.float32))).unsqueeze(-1)
-        v_s = torch.sum(output_pad, 1) * (variable_len.cuda() if self.use_cuda else variable_len)
+        variable_len = Variable(1.0/lengths).unsqueeze(-1)
+        v_s = torch.sum(output, 1) * (variable_len.cuda() if self.use_cuda else variable_len)
         list_prob, list_r_s = [], []
         for i in range(self.n_label):
-            prob_tmp, r_s_tmp = getattr(self, 'capsule_%s' % i)(v_s, output_pad, torch.LongTensor(output_len))
+            prob_tmp, r_s_tmp = getattr(self, 'capsule_%s' % i)(v_s, output, torch.LongTensor(lengths))
             list_prob.append(prob_tmp)
             list_r_s.append(r_s_tmp)
 

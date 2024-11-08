@@ -8,13 +8,15 @@
             "n_layers": 3,
             "bidirectional": true,
             "rnn_type": "LSTM",
-            "cell_drop_out_rate": 0.2, 
-            "embed_drop_out_rate": 0.2,
-            "final_drop_out_rate": 0.2,
+            "cell_dropout_rate": 0.2, 
+            "embed_dropout_rate": 0.2,
+            "final_dropout_rate": 0.2,
             "embedding_strategy": "word2vec",
             "pretrained_path": "glove-twitter-200",
             "embedding_frozen": false,
-            "oov_handling": "average_context"
+
+            "oov_handling": "average_context",
+            "context_window": 5
         }
     },
    "tokenizer_config": {

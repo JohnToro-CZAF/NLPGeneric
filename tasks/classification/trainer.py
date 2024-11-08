@@ -60,7 +60,7 @@ class ClassificationLossFunction(BaseLossFunction):
 
 class EncoderRNNLossFunction(BaseLossFunction):
   def __init__(self):
-    super(ClassificationLossFunction, self).__init__()
+    super(EncoderRNNLossFunction, self).__init__()
   
   def forward(self, output, label):
     return F.multi_margin_loss(output, label)
@@ -183,7 +183,7 @@ class Trainer:
       
     else:
       with torch.no_grad():
-        loss_sim, output = self.model(input)
+        loss_sim, output = self.model(input, length)
       loss_sim = loss_sim.to('cpu')
       output = output.to('cpu')
       loss_hinge_classify = self.loss_fn(output, label)
@@ -219,9 +219,6 @@ class Trainer:
       
   def eval_step(self, input, length, label):
     input = input.to("cuda")
-    with torch.no_grad():
-      output = self.model(input)
-    output = output.to("cpu")
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
     if self.model_type!='EncoderRNN':
@@ -239,7 +236,7 @@ class Trainer:
       
     else:
       with torch.no_grad():
-        loss_sim, output = self.model(input)
+        loss_sim, output = self.model(input, length)
       loss_sim = loss_sim.to('cpu')
       output = output.to('cpu')
       loss_hinge_classify = self.loss_fn(output, label)
@@ -296,7 +293,7 @@ class Trainer:
       loss = self.loss_fn(output, label)
       
     else:
-      loss_sim, output = self.model(input)
+      loss_sim, output = self.model(input, length)
       loss_sim = loss_sim.to('cpu')
       output = output.to('cpu')
       loss_hinge_classify = self.loss_fn(output, label)
