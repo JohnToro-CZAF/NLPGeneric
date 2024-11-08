@@ -55,8 +55,8 @@ class MultilayerGRU(nn.Module):
             self.token_embedding = nn.Embedding(tokenizer.get_vocab_size(), dim_input)
         else:
             self.token_embedding = build_preembedding(
+                tokenizer=tokenizer,
                 strategy=embedding_strategy,
-                vocab_size=tokenizer.get_vocab_size(),
                 embedding_dim=dim_input,
                 **kwargs
             )

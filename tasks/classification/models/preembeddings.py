@@ -1,6 +1,8 @@
 # models/preembedding.py
 import numpy as np
 import fasttext
+import difflib
+from collections import defaultdict
 from gensim.models import Word2Vec
 import gensim.downloader as api
 
@@ -54,6 +56,13 @@ class Word2VecEmbedding(nn.Module):
         # pretrained_embedding = np.append(pretrained_embedding, [np.zeros_like(pretrained_embedding[-1])], axis=0) # pad_id
         pretrained_embedding = np.zeros((self.vocab_size, embedding_dim))
         n_oov = 0
+
+        # Build a mapping from word length to words in w2v_vocab for efficient lookup
+        length_to_words = defaultdict(list)
+        for word in w2v_vocab.keys():
+            length_to_words[len(word)].append(word)
+            
+        
         # ! Start to fill-in the pretrained embedding
         for i in range(self.vocab_size):
             token = tokenizer.idx2word[i]
@@ -65,21 +74,33 @@ class Word2VecEmbedding(nn.Module):
                 elif i == self.pad_id:
                     pretrained_embedding[i] = np.zeros(embedding_dim)
                 else:
-                    # if the token is not in pretrained embedding
                     n_oov += 1
                     if oov_handling in ["using_unk", "average", "average_context"]:
-                        # using unk during training phase and testing
-                        pretrained_embedding[i] = pretrained_embedding[self.unk_id]
-                    else:
-                        # if not using unk, we can use the most similar token
-                        # TODO: this isn;t finished
-                        pretrained_embedding[i] = word2vec_model.most_similar(token)[0][1] # get the most similar token
+                        pretrained_embedding[i] = np.random.rand(embedding_dim)
+                    elif oov_handling == "closest_word":
+                        # Find the closest word in w2v_vocab by edit distance
+                        token_length = len(token)
+                        candidate_words = []
+                        # Consider words of similar length to reduce computation
+                        for l in range(token_length - 1, token_length + 2):
+                            candidate_words.extend(length_to_words.get(l, []))
+                        # Get the closest matches using difflib
+                        closest_matches = difflib.get_close_matches(token, candidate_words, n=1, cutoff=0.8)
+                        if closest_matches:
+                            closest_word = closest_matches[0]
+                            pretrained_embedding[i] = w2v_embeddings[w2v_vocab[closest_word]]
+                            print(f"Token '{token}' not found. Using embedding of closest word '{closest_word}'.")
+                        else:
+                            # If no close match found, assign a random vector
+                            pretrained_embedding[i] = np.random.rand(embedding_dim)
+                            print(f"No close match found for token '{token}'. Assigning a random embedding.")
+        
         print(f"OOV tokens of tokenzier to pretrained {pretrained_path}: {n_oov}/{self.vocab_size}")
         self.embedding = nn.Embedding.from_pretrained(
             torch.tensor(pretrained_embedding, dtype=torch.float),
         )
         
-        if oov_handling == "average_context":
+        if oov_handling == "average_context" or oov_handling == "closest_word":
             self.context_window = kwargs.get('context_window', 2)
             # warning if context window is not defined
             if 'context_window' not in kwargs:
@@ -129,6 +150,25 @@ class Word2VecEmbedding(nn.Module):
                     count_context = torch.sum(context_mask, dim=1)  # Shape: (batch_size, 1)
                     avg_context_embeddings = sum_context_embeddings / (count_context + 1e-8)  # Shape: (batch_size, embedding_dim)
                     # Replace UNK embeddings with average context embeddings
+                    embeddings[unk_positions, i, :] = avg_context_embeddings[unk_positions, :]
+            return embeddings
+        elif self.oov_handling == "closest_word":
+            assert hasattr(self, 'context_window'), "Context window not defined in oov handling: average_context"
+            batch_size, seq_len, embedding_dim = embeddings.size()
+            padded_embeddings = F.pad(embeddings, (0, 0, self.context_window, self.context_window), mode='constant', value=0)
+            padded_input_ids = F.pad(input_ids, (self.context_window, self.context_window), value=self.pad_id)
+            for i in range(seq_len):
+                unk_positions = (input_ids[:, i] == self.unk_id)  # Shape: (batch_size)
+                if unk_positions.any():
+                    context_start = i
+                    context_end = i + 2 * self.context_window + 1  # +1 because slicing is exclusive at the end
+                    context_embeddings = padded_embeddings[:, context_start:context_end, :]  # Shape: (batch_size, window_size, embedding_dim)
+                    context_input_ids = padded_input_ids[:, context_start:context_end]  # Shape: (batch_size, window_size)
+                    context_mask = (context_input_ids != self.unk_id) & (context_input_ids != self.pad_id)
+                    context_mask = context_mask.unsqueeze(-1).float()  # Shape: (batch_size, window_size, 1)
+                    sum_context_embeddings = torch.sum(context_embeddings * context_mask, dim=1)  # Shape: (batch_size, embedding_dim)
+                    count_context = torch.sum(context_mask, dim=1)  # Shape: (batch_size, 1)
+                    avg_context_embeddings = sum_context_embeddings / (count_context + 1e-8)  # Shape: (batch_size, embedding_dim)
                     embeddings[unk_positions, i, :] = avg_context_embeddings[unk_positions, :]
             return embeddings
         else:
