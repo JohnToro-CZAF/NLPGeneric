@@ -58,8 +58,18 @@ class ClassificationLossFunction(BaseLossFunction):
     # get the (batch_size) tensor of positions that is different from padding token
     return F.cross_entropy(output, label)
 
-def get_loss_fn(task: str):
+class EncoderRNNLossFunction(BaseLossFunction):
+  def __init__(self):
+    super(ClassificationLossFunction, self).__init__()
+  
+  def forward(self, output, label):
+    return F.multi_margin_loss(output, label)
+
+def get_loss_fn(task: str,
+                model_type: str):
   if task == "classification":
+    if model_type=='EncoderRNN':
+      return EncoderRNNLossFunction()
     return ClassificationLossFunction()
   else:
     raise NotImplementedError(f"Task {task} not implemented")
@@ -127,7 +137,7 @@ class Trainer:
     self.val_loader = val_loader
     self.test_loader = test_loader
     self.optimizer = optimizer
-    self.loss_fn = get_loss_fn(self.args.task)
+    self.loss_fn = get_loss_fn(self.args.task, model_type)
     self.metric_names = metric_names
     self.analysis_config = analysis_config
     self.early_stopper = early_stopper
@@ -158,14 +168,27 @@ class Trainer:
     output = output.to("cpu")
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
-    if self.model_type!='CNN':
-      if self.aggregation=='last':
-        output = output[range(input.size()[0]), length - 1]
-      elif self.aggregation=='mean':
-        output = torch.mean(output, axis=1)
-      elif self.aggregation=='max':
-        output = torch.max(output, axis=1).values
-    loss = self.loss_fn(output, label)
+    if self.model_type!='EncoderRNN':
+      with torch.no_grad():
+        output = self.model(input) # output : (batch_size, seq_len, num_classes)
+      output = output.to("cpu")
+      if self.model_type!='CNN':
+        if self.aggregation=='last':
+          output = output[range(input.size()[0]), length - 1]
+        elif self.aggregation=='mean':
+          output = torch.mean(output, axis=1)
+        elif self.aggregation=='max':
+          output = torch.max(output, axis=1).values
+      loss = self.loss_fn(output, label)
+      
+    else:
+      with torch.no_grad():
+        loss_sim, output = self.model(input)
+      loss_sim = loss_sim.to('cpu')
+      output = output.to('cpu')
+      loss_hinge_classify = self.loss_fn(output, label)
+      loss_hinge = self.loss_fn(loss_sim, label)
+      loss = loss_hinge_classify + loss_hinge
     return output, loss.item()
 
   def test(self):
@@ -201,14 +224,27 @@ class Trainer:
     output = output.to("cpu")
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
-    if self.model_type!='CNN':
-      if self.aggregation=='last':
-        output = output[range(input.size()[0]), length - 1]
-      elif self.aggregation=='mean':
-        output = torch.mean(output, axis=1)
-      elif self.aggregation=='max':
-        output = torch.max(output, axis=1).values
-    loss = self.loss_fn(output, label)
+    if self.model_type!='EncoderRNN':
+      with torch.no_grad():
+        output = self.model(input) # output : (batch_size, seq_len, num_classes)
+      output = output.to("cpu")
+      if self.model_type!='CNN':
+        if self.aggregation=='last':
+          output = output[range(input.size()[0]), length - 1]
+        elif self.aggregation=='mean':
+          output = torch.mean(output, axis=1)
+        elif self.aggregation=='max':
+          output = torch.max(output, axis=1).values
+      loss = self.loss_fn(output, label)
+      
+    else:
+      with torch.no_grad():
+        loss_sim, output = self.model(input)
+      loss_sim = loss_sim.to('cpu')
+      output = output.to('cpu')
+      loss_hinge_classify = self.loss_fn(output, label)
+      loss_hinge = self.loss_fn(loss_sim, label)
+      loss = loss_hinge_classify + loss_hinge
     return output, loss.item()
 
   def eval(self):
@@ -246,19 +282,30 @@ class Trainer:
   def train_step(self, input, length, label):
     self.optimizer.zero_grad()
     input = input.to("cuda")
-    output = self.model(input) # output : (batch_size, seq_len, num_classes)
-    output = output.to("cpu")
-    if self.model_type!='CNN':
-      if self.aggregation=='last':
-        output = output[range(input.size()[0]), length - 1]
-      elif self.aggregation=='mean':
-        output = torch.mean(output[:, length-1], axis=1)
-      elif self.aggregation=='max':
-        output = torch.max(output[:, length-1], axis=1).values
 
-    loss = self.loss_fn(output, label)
+    if self.model_type!='EncoderRNN':
+      output = self.model(input) # output : (batch_size, seq_len, num_classes)
+      output = output.to("cpu")
+      if self.model_type!='CNN':
+        if self.aggregation=='last':
+          output = output[range(input.size()[0]), length - 1]
+        elif self.aggregation=='mean':
+          output = torch.mean(output, axis=1)
+        elif self.aggregation=='max':
+          output = torch.max(output, axis=1).values
+      loss = self.loss_fn(output, label)
+      
+    else:
+      loss_sim, output = self.model(input)
+      loss_sim = loss_sim.to('cpu')
+      output = output.to('cpu')
+      loss_hinge_classify = self.loss_fn(output, label)
+      loss_hinge = self.loss_fn(loss_sim, label)
+      loss = loss_hinge_classify + loss_hinge
+
     loss.backward()
     self.optimizer.step()
+      
     
     # Record gradients if required
     if self.analysis_config.get('record_gradients', False):

@@ -33,7 +33,7 @@ def checking_config(config):
   #   if "dim_input" not in config["model_config"]["args"]:
   #     raise ValueError("Please specify dim_input for word2vec or glove embedding strategy")
 
-  if config['model_config']['model_type']=='CNN':
+  if config['model_config']['model_type']=='CNN' or config['model_config']['model_type']=='EncoderRNN':
     if 'aggregation' in config['model_config']['args']:
       raise ValueError("Aggregation method is only available for sequential models (RNN, LSTM, GRU)")
 
