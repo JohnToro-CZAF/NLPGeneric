@@ -89,7 +89,8 @@ class EncoderRNN(nn.Module):
             rnn_type,
             use_cuda=True,
             embedding_strategy='random', 
-            embedding_frozen=True,):
+            embedding_frozen=True,
+            **kwargs):
         super(EncoderRNN, self).__init__()
         self.n_layers = n_layers
         self.dim_input = dim_input
