@@ -3,7 +3,10 @@ from .rnn import RNN, MultilayerRNN
 from .gru import MultilayerGRU, MultilayerBiGRU
 from .bi_deep_rnn import BiDeepRNN, DeepRNN
 from .cnn import CNN
+from .rnn_capsule import EncoderRNN
+
 from .build_model import build_model
+
 
 __all__ = [
     'RNN',
@@ -15,5 +18,6 @@ __all__ = [
     'MultilayerGRU',
     'MultilayerBiGRU',
     'CNN',
+    'EncoderRNN'
     'build_model'
 ]
