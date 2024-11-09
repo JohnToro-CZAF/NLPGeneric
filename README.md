@@ -20,4 +20,5 @@ python make_configs.py
 
 ### If you want to change the config file, create a new one in the configs folder.
 What a config file might look like
+
 ![image](https://github.com/user-attachments/assets/c654c2ab-3db6-4c38-bcd3-c902153488e1)
