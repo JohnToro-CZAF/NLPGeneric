@@ -11,6 +11,13 @@ import torch.nn as nn
 import metrics
 from metrics import beautify
 
+if torch.cuda.is_available():
+    device = torch.device('cuda:0')
+elif torch.backends.mps.is_available():
+    device = torch.device('mps')
+else:
+    device = torch.device('cpu')
+
 SUPPORTED_TASKS = ["classification", "causal"]
 class EarlyStopper:
     def __init__(self, patience=50, min_delta=0, greater_is_better=False):
@@ -152,7 +159,7 @@ class Trainer:
     return {metric["name"]: metrics.build(metric["name"], metric["args"]) for metric in self.metric_names}
   
   def test_step(self, input, length, label):
-    input = input.to("cuda")
+    input = input.to(device)
     with torch.no_grad():
       output = self.model(input)
     output = output.to("cpu")
@@ -195,7 +202,7 @@ class Trainer:
         self.metrics_log['test_metrics'][metric_name].append(value)
       
   def eval_step(self, input, length, label):
-    input = input.to("cuda")
+    input = input.to(device)
     with torch.no_grad():
       output = self.model(input)
     output = output.to("cpu")
@@ -245,7 +252,7 @@ class Trainer:
   
   def train_step(self, input, length, label):
     self.optimizer.zero_grad()
-    input = input.to("cuda")
+    input = input.to(device)
     output = self.model(input) # output : (batch_size, seq_len, num_classes)
     output = output.to("cpu")
     if self.model_type!='CNN':
