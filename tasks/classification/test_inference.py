@@ -37,7 +37,9 @@ def checking_config(config):
     # have to specify the input_dim
     if "dim_input" not in config["model_config"]["args"]:
       raise ValueError("Please specify dim_input for word2vec or glove embedding strategy")
-
+  if config['model_config']['model_type']=='CNN':
+    if 'aggregation' in config['model_config']['args']:
+      raise ValueError("Aggregation method is only available for sequential models (RNN, LSTM, GRU)")
 def main():
   argparser = argparse.ArgumentParser()
   argparser.add_argument("--config", type=str, required=True)
@@ -51,6 +53,9 @@ def main():
     **config["trainer_args"]
   )
 
+  aggregation = config['model_config']['args'].get('aggregation', 'last')
+  if aggregation=='attention':
+    config['model_config']['args']['attention'] = True
   model_type = config['model_config']['model_type']
   model = build_model(config["model_config"])
   model_path = os.path.join(config['analysis_config']['output_dir'], 'model.pth')
@@ -79,7 +84,12 @@ def main():
     # outputs : (batch_size, seq_len, num_classes)
     # result : (batch_size, num_classes)
     if model_type!='CNN':
-      output = output[range(input.size()[0]), length - 1]
+      if aggregation=='last':
+        output = output[range(input.size()[0]), length - 1]
+      elif aggregation=='mean':
+        output = torch.mean(output, axis=1)
+      elif aggregation=='max':
+        output = torch.max(output, axis=1).values
     for metric_name, metric in metric_dict.items():
       metric.update(output, label)
   result_metrics = {

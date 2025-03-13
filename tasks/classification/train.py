@@ -32,7 +32,10 @@ def checking_config(config):
   #   # have to specify the input_dim
   #   if "dim_input" not in config["model_config"]["args"]:
   #     raise ValueError("Please specify dim_input for word2vec or glove embedding strategy")
-  pass
+
+  if config['model_config']['model_type']=='CNN':
+    if 'aggregation' in config['model_config']['args']:
+      raise ValueError("Aggregation method is only available for sequential models (RNN, LSTM, GRU)")
 
 def main():
   argparser = argparse.ArgumentParser()
@@ -46,6 +49,12 @@ def main():
   training_args = TrainingArgs(
     **config["trainer_args"]
   )
+
+  aggregation = config['model_config']['args'].get('aggregation', 'last')
+
+  if aggregation=='attention':
+    config['model_config']['args']['attention'] = True
+  save_model = config['trainer_args'].get('save_model', False)
   tokenizer = build_tokenizer(config["tokenizer_config"])
   train_loader, val_loader, test_loader = get_dataloaders(
     tokenizer=tokenizer, 
@@ -80,7 +89,8 @@ def main():
     metric_names=config["metric_config"]["metrics"],
     analysis_config=config["analysis_config"],
     early_stopper=early_stopper,
-    model_type=model_type
+    model_type=model_type,
+    aggregation=aggregation,
   )
   if hasattr(training_args, "epoch") or training_args.epoch is not None:
     trainer.train_epoch()
