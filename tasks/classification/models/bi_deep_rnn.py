@@ -34,8 +34,6 @@ class RNNLayer(nn.Module):
   def init_hidden(self, batch_size, device):
     return torch.zeros(batch_size, self.dim_hidden).to(device)
   
-
-
 class DeepRNN(nn.Module):
   def __init__(self, dim_input, dim_hidden, num_layers, tokenizer, direction=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
     super(DeepRNN, self).__init__()

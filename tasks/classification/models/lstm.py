@@ -46,6 +46,7 @@ class LSTMSubLayer(nn.Module):
         H = torch.zeros(batch_size, self.hidden_size).to(device)
         C = torch.zeros(batch_size, self.hidden_size).to(device)
         return (H, C)
+
 class MultilayerLSTM(nn.Module):
     def __init__(self, dim_input, dim_hidden, dim_output, tokenizer, num_layers=1, embedding_strategy='random', embedding_frozen=True, **kwargs):
         super(MultilayerLSTM, self).__init__()

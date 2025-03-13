@@ -1,0 +1,60 @@
+{
+    "model_config": {
+        "model_type": "BiGRU",
+        "args": {
+            "dim_input": 100,
+            "dim_hidden": 128,
+            "num_layers": 1,
+            "dim_output": 2,
+            "embedding_strategy": "word2vec",
+            "pretrained_path": "glove-twitter-100",
+            "embedding_frozen": false,
+            "context_window": 5,
+            "oov_handing": "closest_word"
+        }
+    },
+    "tokenizer_config": {
+        "tokenizer_type": "nltk",
+        "args": {
+            "dataset": "rotten_tomatoes"
+        }
+    },
+    "trainer_args": {
+        "task": "classification",
+        "training_batch_size": 64,
+        "validation_batch_size": 64,
+        "learning_rate": 0.0005,
+        "epoch": 20
+    },
+    "metric_config": {
+        "metrics": [
+            {
+                "name": "accuracy",
+                "args": {}
+            },
+            {
+                "name": "f1",
+                "args": {}
+            },
+            {
+                "name": "precision",
+                "args": {}
+            },
+            {
+                "name": "recall",
+                "args": {}
+            }
+        ]
+    },
+    "data_config": {
+        "name": "rotten_tomatoes",
+        "is_huggingface": true,
+        "type": "classification"
+    },
+    "analysis_config": {
+        "output_dir": "experiments/oov_training_handling/BiGRU_oov=closest_word_embedding=glove-twitter-100",
+        "record_metrics": true,
+        "record_gradients": true,
+        "save_interval": 1000
+    }
+}

@@ -292,7 +292,7 @@ class Trainer:
         if es:
           break
     # save model after training
-    torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
+    # torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'model.pth'))
   
   def train_epoch(self): # epoch training instead
     self.model.train()
