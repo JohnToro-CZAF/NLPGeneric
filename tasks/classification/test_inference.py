@@ -61,7 +61,15 @@ def main():
   model_path = os.path.join(config['analysis_config']['output_dir'], 'model.pth')
   if os.path.exists(model_path):
     model.load_state_dict(torch.load(model_path, weights_only=True))
-    model.to("cuda")
+    
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+    elif torch.backends.mps.is_available():
+        device = torch.device('mps')
+    else:
+        device = torch.device('cpu')
+    model.to(device)
+    
     model.eval()
   else:
     raise ValueError('Model file does not exist. Please perform the training step first')
@@ -77,7 +85,7 @@ def main():
   metric_names = config['metric_config']['metrics']
   metric_dict = get_metrics_dict(metric_names)
   for input, length, label in test_loader:
-    input = input.to("cuda")
+    input = input.to(device)
     with torch.no_grad():
       output = model(input)
     output = output.to("cpu")

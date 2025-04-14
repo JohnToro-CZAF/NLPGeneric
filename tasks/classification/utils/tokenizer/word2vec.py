@@ -10,6 +10,8 @@ from collections import Counter
 import gensim.downloader as api
 from nltk.tokenize import word_tokenize
 
+nltk.download('punkt_tab')
+
 class NLTKTokenizer:
     def __init__(self, dataset="rotten_tomatoes", unk_id=None, pad_id=None):
         self.dataset = dataset

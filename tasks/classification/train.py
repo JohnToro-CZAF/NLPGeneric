@@ -12,6 +12,13 @@ from utils.tokenizer import build_tokenizer
 from trainer import Trainer, TrainingArgs, EarlyStopper
 from dataloader import get_dataloaders
 
+if torch.cuda.is_available():
+    device = torch.device('cuda:0')
+elif torch.backends.mps.is_available():
+    device = torch.device('mps')
+else:
+    device = torch.device('cpu')
+
 def checking_config(config):
   # check if the preembedding strategy is compatible with the tokenizer or not
   # if config["tokenizer_config"]["tokenizer_type"] == "bpe":
@@ -64,7 +71,7 @@ def main():
   
   model_type = config['model_config']['model_type']
   model = build_model(config["model_config"], tokenizer)
-  model.to("cuda")
+  model.to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=training_args.learning_rate)
   
   exp_dir = config["analysis_config"].get('output_dir', 'output/exp1')
