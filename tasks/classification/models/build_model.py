@@ -9,7 +9,8 @@ from models import (
     MultilayerBiLSTM,
     MultilayerGRU,
     MultilayerBiGRU,
-    CNN
+    CNN,
+    EncoderRNN
 )
 
 MODULE_MAP = {
@@ -21,7 +22,8 @@ MODULE_MAP = {
     "BiLSTM": MultilayerBiLSTM,
     "GRU": MultilayerGRU,
     "BiGRU": MultilayerBiGRU,
-    "CNN": CNN
+    "CNN": CNN,
+    'EncoderRNN': EncoderRNN
 }
 
 def build_model(config: Dict, tokenizer)-> nn.Module:
